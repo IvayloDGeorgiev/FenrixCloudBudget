@@ -1,6 +1,7 @@
 using FenrixCloudBudget.Core.Enums;
 using FenrixCloudBudget.Core.Interfaces;
 using FenrixCloudBudget.Data.Providers;
+using FenrixCloudBudget.Data.TestData;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,13 +10,20 @@ namespace FenrixCloudBudget.Data;
 public static class DataServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the EF Core context (via IDbContextFactory so Blazor components can
-    /// create short-lived contexts) and the IDataProvider matching the chosen mode.
+    /// Registers the EF Core context factory and the IDataProvider matching the chosen mode.
+    /// The context factory is a <see cref="RoutingDbContextFactory"/> so that "test data mode"
+    /// transparently swaps the entire app onto an isolated test database when toggled on.
     /// </summary>
     public static IServiceCollection AddFenrixData(this IServiceCollection services, DataProviderOptions options)
     {
         services.AddSingleton(options);
-        services.AddDbContextFactory<AppDbContext>(b => DbContextFactoryBuilder.Configure(b, options));
+
+        // Test-data routing: one factory serves either the real backend or the isolated test DB.
+        services.AddSingleton<TestDataState>();
+        services.AddSingleton<RoutingDbContextFactory>(sp =>
+            new RoutingDbContextFactory(options, sp.GetRequiredService<TestDataState>()));
+        services.AddSingleton<IDbContextFactory<AppDbContext>>(sp =>
+            sp.GetRequiredService<RoutingDbContextFactory>());
 
         services.AddSingleton<IDataProvider>(sp =>
         {

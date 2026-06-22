@@ -2,6 +2,8 @@
 @inject ThemeService Theme
 @inject IDbContextFactory<AppDbContext> DbFactory
 @inject IEmailSenderFactory EmailFactory
+@inject FenrixCloudBudget.Data.TestData.TestDataState TestData
+@inject FenrixCloudBudget.Data.TestData.RoutingDbContextFactory TestRouting
 @inject ISnackbar Snackbar
 
 <section class="fx-page-header">
@@ -76,6 +78,27 @@
                     <h3>Storage backend</h3>
                     <p>SQLite stays on-device by default. Server modes place the workspace in a central data store.</p>
                 </div>
+            </div>
+
+            <div class="fx-card mt-3" style="background:var(--fx-surface-2);box-shadow:none">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                    <div>
+                        <strong>Test data mode</strong>
+                        <MudText Typo="Typo.caption">
+                            When on, the whole app shows an isolated sample dataset (5 demo clients with
+                            projects, services, budgets and ~30 days of cost history) instead of your real
+                            data — even when a database is connected. Your real data is never touched; turn
+                            this off to return to it. Great for trying features quickly.
+                        </MudText>
+                    </div>
+                    <MudSwitch T="bool" Value="_testDataEnabled" ValueChanged="OnTestDataChanged" Color="Color.Primary" />
+                </div>
+                @if (_testDataEnabled)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                        Showing seeded test data. Navigate between pages (or reopen one) to refresh the view.
+                    </MudAlert>
+                }
             </div>
 
             @if (_settings is not null)
@@ -185,15 +208,30 @@
     private EmailConfig? _email;
     private string _connectionString = "";
     private string _testResult = "";
+    private bool _testDataEnabled;
     private readonly Dictionary<string, string> _fields = new();
 
     protected override async Task OnInitializedAsync()
     {
+        _testDataEnabled = TestData.Enabled;
         await using var db = await DbFactory.CreateDbContextAsync();
         _settings = await db.AppSettings.FirstOrDefaultAsync() ?? new AppSetting();
         _settings.ThemeId = ThemeService.ResolveThemeId(_settings.ThemeId);
         Theme.SetTheme(_settings.ThemeId);
         _email = await db.EmailConfigs.FirstOrDefaultAsync() ?? new EmailConfig();
+    }
+
+    private async Task OnTestDataChanged(bool value)
+    {
+        _testDataEnabled = value;
+        if (value)
+            await TestRouting.EnsureTestReadyAsync();   // create + seed the isolated test DB on first use
+        TestData.Set(value);                            // flips what every page reads; host persists it
+        Snackbar.Add(
+            value
+                ? "Test data ON — showing seeded sample data. Navigate to refresh views."
+                : "Test data OFF — showing your real data.",
+            Severity.Info);
     }
 
     private string GetField(string key) => _fields.GetValueOrDefault(key, "");

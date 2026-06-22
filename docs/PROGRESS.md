@@ -7,6 +7,13 @@
 **Last updated:** 2026-06-22
 **Current focus:** Phases 4–5 implemented (via Codex). Latest change: Projects page now supports editing/removing **manual** services (cloud-synced services are locked) and full **per-project budget** CRUD so pay-as-you-go spend triggers threshold alerts before overspend. Next: manual Windows/API verification, then complete hosted OTP sign-in and bidirectional SaaS sync.
 
+### Recent: test data mode (testing aid)
+- ✅ Isolated **test database** (`fenrix.test.db`) + `RoutingDbContextFactory` so the whole app reads/writes test data when the toggle is on — even if a real DB/SQL Server is connected. Real data is never touched.
+- ✅ `TestDataSeeder`: 5 clients × 2–3 projects, mixed manual/connected services, budgets, ~30 days of cost records, sample cloud accounts + reminders, and the bootstrap admin (so sign-in works in test mode).
+- ✅ Toggle in **Settings → Data & connections**; persisted via MAUI Preferences and restored on startup. Real backend is always initialized first regardless of the toggle.
+- ✅ Tests: `TestDataSeederTests` (5 clients, populated, idempotent).
+- Note: no migration needed (test DB uses `EnsureCreated`); `*.db` is gitignored.
+
 ### Recent: project services & budgets (UX request)
 - ✅ Manual services are inline-editable (name/provider/est. cost) and removable on the Projects editor.
 - ✅ Cloud-synced services are locked (read-only, lock icon) — managed via Cloud Services.

@@ -58,14 +58,34 @@ public static class MauiProgram
 
         var app = builder.Build();
 
-        // Ensure migrations and the bootstrap administrator exist before Blazor can render
-        // the login form. MAUI does not auto-start IHostedService, so the scheduler follows
-        // in the background after deterministic database initialization.
+        const string testDataPrefKey = "fenrix.testdata.enabled";
+        var testState = app.Services.GetRequiredService<FenrixCloudBudget.Data.TestData.TestDataState>();
+        var routingFactory = app.Services.GetRequiredService<FenrixCloudBudget.Data.TestData.RoutingDbContextFactory>();
+
+        // Always initialize the REAL backend first (toggle off) so its migrations + bootstrap
+        // admin exist regardless of the test-data setting. MAUI does not auto-start
+        // IHostedService, so the scheduler follows in the background afterwards.
+        testState.Initialize(false);
         using (var scope = app.Services.CreateScope())
             scope.ServiceProvider.GetRequiredService<IDataProvider>()
                 .InitializeAsync()
                 .GetAwaiter()
                 .GetResult();
+
+        // Persist future toggle changes (and seed the test DB when it's switched on).
+        testState.Changed += () =>
+        {
+            Preferences.Default.Set(testDataPrefKey, testState.Enabled);
+            if (testState.Enabled)
+                _ = routingFactory.EnsureTestReadyAsync();
+        };
+
+        // Restore the persisted toggle; if it was left on, seed the isolated test DB now.
+        if (Preferences.Default.Get(testDataPrefKey, false))
+        {
+            routingFactory.EnsureTestReadyAsync().GetAwaiter().GetResult();
+            testState.Set(true);
+        }
 
         Task.Run(() => app.Services
             .GetRequiredService<FenrixCloudBudget.Services.Sync.AlertSchedulerService>()
