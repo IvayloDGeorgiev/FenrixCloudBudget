@@ -1,0 +1,87 @@
+@using System.Globalization
+@*
+   Animated, interactive column chart. Bars grow from the baseline on first render and
+   highlight with a tooltip on hover. Pure SVG-free CSS/flex implementation so it scales
+   cleanly inside cards. No JS charting dependency.
+*@
+
+<div class="fx-bars">
+    <div class="fx-bars-plot" style="--fx-bars-count:@_bars.Count">
+        @for (var i = 0; i < _bars.Count; i++)
+        {
+            var b = _bars[i];
+            var idx = i;
+            var pct = _max > 0 ? b.Value / _max * 100 : 0;
+            <div class="fx-bar-col @(_hover == idx ? "is-hover" : "")"
+                 @onmouseover="@(() => _hover = idx)" @onmouseout="@(() => _hover = null)">
+                <div class="fx-bar-tooltip">@b.Label<span>@Format(b.Value)</span></div>
+                <div class="fx-bar-track">
+                    <div class="fx-bar-fill"
+                         style="height:@(_mounted ? F(pct) : "0")%;transition-delay:@F(idx * 0.06)s"></div>
+                </div>
+                <div class="fx-bar-label" title="@b.Label">@b.Label</div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyDictionary<string, double> Data { get; set; } = new Dictionary<string, double>();
+    [Parameter] public Func<double, string>? ValueFormat { get; set; }
+
+    private bool _mounted;
+    private int? _hover;
+    private List<Bar> _bars = new();
+    private double _max;
+
+    private record Bar(string Label, double Value);
+
+    protected override void OnParametersSet()
+    {
+        _bars = Data.Select(kv => new Bar(kv.Key, kv.Value)).ToList();
+        _max = _bars.Count > 0 ? _bars.Max(b => b.Value) : 0;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_mounted)
+        {
+            _mounted = true;
+            await Task.Delay(60);
+            StateHasChanged();
+        }
+    }
+
+    private string Format(double v) => (ValueFormat ?? (x => x.ToString("C0")))(v);
+
+    private static string F(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+}
+
+<style>
+    .fx-bars { width: 100%; }
+    .fx-bars-plot {
+        display: grid; grid-template-columns: repeat(var(--fx-bars-count), 1fr);
+        align-items: end; gap: 10px; height: 240px; padding-top: 8px;
+    }
+    .fx-bar-col { position: relative; display: flex; flex-direction: column; align-items: center; height: 100%; }
+    .fx-bar-track { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+    .fx-bar-fill {
+        width: 60%; max-width: 46px; min-height: 4px; border-radius: 10px 10px 4px 4px;
+        background: linear-gradient(180deg, var(--fx-primary), color-mix(in srgb, var(--fx-primary) 55%, var(--fx-accent)));
+        transition: height .9s cubic-bezier(.22,1,.36,1); box-shadow: 0 6px 16px color-mix(in srgb, var(--fx-primary) 30%, transparent);
+    }
+    .fx-bar-col.is-hover .fx-bar-fill { filter: brightness(1.12); transform: scaleX(1.06); }
+    .fx-bar-label {
+        margin-top: 8px; font-size: 11px; color: var(--fx-text-muted); text-align: center;
+        max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .fx-bar-tooltip {
+        position: absolute; top: -6px; left: 50%; transform: translate(-50%, -100%) scale(.96);
+        transform-origin: bottom center; background: var(--fx-text); color: var(--fx-surface);
+        padding: 6px 10px; border-radius: 9px; font-size: 11px; font-weight: 600; white-space: nowrap;
+        opacity: 0; pointer-events: none; transition: opacity .15s ease, transform .15s ease; z-index: 5;
+        display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .fx-bar-tooltip span { font-weight: 800; }
+    .fx-bar-col.is-hover .fx-bar-tooltip { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+</style>

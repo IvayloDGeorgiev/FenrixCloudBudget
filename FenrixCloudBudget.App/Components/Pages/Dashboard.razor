@@ -87,19 +87,24 @@
     </div>
 </section>
 
-<section class="fx-card fx-filter-bar">
-    <div class="fx-filter-row">
-        <div class="fx-filter-label">
+<section class="fx-card fx-filter-bar @(_filtersOpen ? "is-open" : "is-collapsed")">
+    <button type="button" class="fx-filter-toggle" @onclick="@(() => _filtersOpen = !_filtersOpen)">
+        <span class="fx-filter-label">
             <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" />
             Refine view
-        </div>
+        </span>
+        <span class="fx-filter-summary">@FilterSummary</span>
+        <MudIcon Icon="@Icons.Material.Filled.ExpandMore" Size="Size.Small" Class="fx-filter-chevron" />
+    </button>
+
+    <div class="fx-filter-controls">
         <MudSelect T="string" @bind-Value="_provider" Label="Provider" Dense="true" Class="fx-filter-control">
             <MudSelectItem Value="@("All")">All providers</MudSelectItem>
             <MudSelectItem Value="@("Aws")">AWS</MudSelectItem>
             <MudSelectItem Value="@("Azure")">Azure</MudSelectItem>
             <MudSelectItem Value="@("Gcp")">GCP</MudSelectItem>
         </MudSelect>
-        <MudSelect T="int?" @bind-Value="_clientId" Label="Client" Dense="true" Clearable="true" Class="fx-filter-control">
+        <MudSelect T="int?" @bind-Value="_clientId" Label="Client" Dense="true" Class="fx-filter-control">
             @foreach (var client in _clients)
             {
                 <MudSelectItem T="int?" Value="@client.Id">@client.Name</MudSelectItem>
@@ -116,6 +121,56 @@
     </div>
 </section>
 
+<section class="fx-card fx-chart-card fx-budget-section">
+    <div class="fx-card-head">
+        <div>
+            <h2 class="fx-card-title">Budget guardrails</h2>
+            <div class="fx-card-kicker">Current exposure by project</div>
+        </div>
+        <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.Shield" Size="Size.Small" /></div>
+    </div>
+    @if (_budgetRows.Any())
+    {
+        <table class="fx-budget-table">
+            <thead>
+                <tr><th>Project</th><th>Trend</th><th>Budget</th><th>Spend</th><th>Used</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _budgetRows)
+                {
+                    <tr>
+                        <td data-label="Project">@row.Project</td>
+                        <td data-label="Trend">
+                            @if (_budgetSpark.TryGetValue(row.ProjectId, out var series) && series.Count > 1)
+                            {
+                                <FxSparkline Values="series"
+                                             Color="@(row.Pct >= 100 ? "#ef4444" : row.Pct >= 80 ? "#f59e0b" : "#10b981")" />
+                            }
+                            else
+                            {
+                                <span class="fx-spark-empty">—</span>
+                            }
+                        </td>
+                        <td data-label="Budget">@row.Budget.ToString("C0")</td>
+                        <td data-label="Spend">@row.Spend.ToString("C0")</td>
+                        <td data-label="Used">
+                            <div class="fx-budget-percent">
+                                <MudProgressLinear Color="@(row.Pct >= 100 ? Color.Error : row.Pct >= 80 ? Color.Warning : Color.Success)"
+                                                   Value="@Math.Min(row.Pct, 100)" />
+                                <span>@row.Pct%</span>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <div class="fx-chart-wrap"><Empty /></div>
+    }
+</section>
+
 <section class="fx-dashboard-grid">
     <div class="fx-card fx-chart-card">
         <div class="fx-card-head">
@@ -128,54 +183,13 @@
         <div class="fx-chart-wrap">
             @if (_byProvider.Any())
             {
-                <MudChart ChartType="ChartType.Donut" Width="250px" Height="250px"
-                          InputData="@_byProvider.Values.ToArray()"
-                          InputLabels="@_byProvider.Keys.ToArray()" />
+                <FxDonutChart Data="_byProvider" />
             }
             else
             {
                 <Empty />
             }
         </div>
-    </div>
-
-    <div class="fx-card fx-chart-card">
-        <div class="fx-card-head">
-            <div>
-                <h2 class="fx-card-title">Budget guardrails</h2>
-                <div class="fx-card-kicker">Current exposure by project</div>
-            </div>
-            <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.Shield" Size="Size.Small" /></div>
-        </div>
-        @if (_budgetRows.Any())
-        {
-            <table class="fx-budget-table">
-                <thead>
-                    <tr><th>Project</th><th>Budget</th><th>Spend</th><th>Used</th></tr>
-                </thead>
-                <tbody>
-                    @foreach (var row in _budgetRows)
-                    {
-                        <tr>
-                            <td data-label="Project">@row.Project</td>
-                            <td data-label="Budget">@row.Budget.ToString("C0")</td>
-                            <td data-label="Spend">@row.Spend.ToString("C0")</td>
-                            <td data-label="Used">
-                                <div class="fx-budget-percent">
-                                    <MudProgressLinear Color="@(row.Pct >= 100 ? Color.Error : row.Pct >= 80 ? Color.Warning : Color.Success)"
-                                                       Value="@Math.Min(row.Pct, 100)" />
-                                    <span>@row.Pct%</span>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        }
-        else
-        {
-            <div class="fx-chart-wrap"><Empty /></div>
-        }
     </div>
 
     <div class="fx-card fx-chart-card">
@@ -189,9 +203,7 @@
         <div class="fx-chart-wrap">
             @if (_topServices.Any())
             {
-                <MudChart ChartType="ChartType.Bar" Width="100%" Height="270px"
-                          ChartSeries="@(new List<ChartSeries> { new() { Name = "Cost", Data = _topServices.Values.ToArray() } })"
-                          XAxisLabels="@_topServices.Keys.ToArray()" />
+                <FxBarChart Data="_topServices" />
             }
             else
             {
@@ -199,6 +211,24 @@
             }
         </div>
     </div>
+</section>
+
+<section class="fx-card fx-chart-card fx-trend-card fx-trend-bottom">
+    <div class="fx-card-head">
+        <div>
+            <h2 class="fx-card-title">Spend trend</h2>
+            <div class="fx-card-kicker">Daily spend across the selected range</div>
+        </div>
+        <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.ShowChart" Size="Size.Small" /></div>
+    </div>
+    @if (_trend.Count > 1)
+    {
+        <FxAreaChart Points="_trend" />
+    }
+    else
+    {
+        <div class="fx-chart-wrap"><Empty Text="No daily cost history in range yet — sync a cloud account to populate the trend." /></div>
+    }
 </section>
 
 <div class="fx-ad-slot">Reserved for a privacy-conscious banner on free plans</div>
@@ -211,6 +241,17 @@
     private string _lastSynced = "Showing manual estimates — connect a cloud account for synced spend.";
     private string _dataModeLabel = "Estimated";
     private bool _syncing;
+    private bool _filtersOpen;   // collapsed by default on small screens; always shown on desktop via CSS
+
+    private string FilterSummary
+    {
+        get
+        {
+            var client = _clients.FirstOrDefault(c => c.Id == _clientId)?.Name ?? "All clients";
+            var provider = _provider == "All" ? "All clouds" : _provider;
+            return $"{client} · {provider} · {_from:dd MMM} – {_to:dd MMM}";
+        }
+    }
 
     private decimal _totalSpend;
     private decimal _budgetTotal;
@@ -224,13 +265,16 @@
     private Dictionary<string, double> _byProvider = new();
     private Dictionary<string, double> _topServices = new();
     private List<BudgetRow> _budgetRows = new();
+    private List<KeyValuePair<string, double>> _trend = new();
+    private Dictionary<int, IReadOnlyList<double>> _budgetSpark = new();
 
-    private record BudgetRow(string Project, decimal Budget, decimal Spend, int Pct);
+    private record BudgetRow(int ProjectId, string Project, decimal Budget, decimal Spend, int Pct);
 
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         _clients = await db.Clients.OrderBy(client => client.Name).ToListAsync();
+        _clientId ??= _clients.FirstOrDefault()?.Id;   // always keep one client selected
         await LoadAsync();
     }
 
@@ -304,8 +348,29 @@
         {
             var spend = list.Where(service => service.ProjectId == budget.ProjectId).Sum(SpendFor);
             var percent = budget.Amount > 0 ? (int)Math.Round(spend / budget.Amount * 100) : 0;
-            return new BudgetRow(budget.Project.Name, budget.Amount, spend, percent);
+            return new BudgetRow(budget.ProjectId, budget.Project.Name, budget.Amount, spend, percent);
         }).ToList();
+
+        // Spend trend: daily totals across the range (from synced cost records).
+        _trend = costs
+            .GroupBy(cost => cost.Date)
+            .OrderBy(group => group.Key)
+            .Select(group => new KeyValuePair<string, double>(
+                group.Key.ToString("MMM d"), (double)group.Sum(cost => cost.Amount)))
+            .ToList();
+
+        // Per-project mini trend (one daily series per project) for the budget table sparklines.
+        var serviceToProject = list.ToDictionary(service => service.Id, service => service.ProjectId);
+        _budgetSpark = costs
+            .GroupBy(cost => serviceToProject.TryGetValue(cost.ServiceId, out var pid) ? pid : -1)
+            .Where(group => group.Key > 0)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<double>)group
+                    .GroupBy(cost => cost.Date)
+                    .OrderBy(byDate => byDate.Key)
+                    .Select(byDate => (double)byDate.Sum(cost => cost.Amount))
+                    .ToList());
 
         _totalSpend = list.Sum(SpendFor);
         _budgetTotal = _budgetRows.Sum(row => row.Budget);

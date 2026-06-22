@@ -1,0 +1,137 @@
+@using System.Globalization
+@*
+   Animated, interactive donut. Segments "draw in" on first render (CSS transition on
+   stroke-dasharray) and highlight on hover, with the centre showing the hovered slice
+   (or the total). Pure SVG + CSS — no JS charting dependency.
+*@
+
+<div class="fx-donut">
+    <div class="fx-donut-ring">
+        <svg viewBox="0 0 120 120" class="fx-donut-svg" role="img" aria-label="Distribution chart">
+            <circle cx="60" cy="60" r="@R" fill="none" stroke="var(--fx-surface-2)" stroke-width="@Stroke" />
+            @{
+                double acc = 0;
+                var i = 0;
+            }
+            @foreach (var seg in _segments)
+            {
+                var dash = _mounted ? seg.Fraction * Circ : 0d;
+                var rotation = acc * 360 - 90;
+                var idx = i;
+                <circle class="fx-donut-seg @(_hover == idx ? "is-hover" : _hover is not null ? "is-dim" : "")"
+                        cx="60" cy="60" r="@R" fill="none"
+                        stroke="@seg.Color" stroke-width="@Stroke" stroke-linecap="butt"
+                        style="stroke-dasharray:@F(dash) @F(Circ - dash);transform:rotate(@F(rotation)deg);transform-origin:60px 60px;transition:stroke-dasharray .9s cubic-bezier(.22,1,.36,1) @F(idx * 0.08)s,stroke-width .2s ease,opacity .2s ease;"
+                        @onmouseover="@(() => _hover = idx)" @onmouseout="@(() => _hover = null)" @onfocus="@(() => _hover = idx)" tabindex="0" />
+                acc += seg.Fraction;
+                i++;
+            }
+        </svg>
+        <div class="fx-donut-center">
+            <div class="fx-donut-center-value">@CenterValue</div>
+            <div class="fx-donut-center-label">@CenterLabel</div>
+        </div>
+    </div>
+
+    <div class="fx-donut-legend">
+        @for (var l = 0; l < _segments.Count; l++)
+        {
+            var s = _segments[l];
+            var idx = l;
+            <button type="button" class="fx-donut-legend-item @(_hover == idx ? "is-hover" : "")"
+                    @onmouseover="@(() => _hover = idx)" @onmouseout="@(() => _hover = null)">
+                <span class="fx-donut-dot" style="background:@s.Color"></span>
+                <span class="fx-donut-legend-name">@s.Label</span>
+                <span class="fx-donut-legend-value">@Format(s.Value) · @($"{s.Fraction * 100:0}%")</span>
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyDictionary<string, double> Data { get; set; } = new Dictionary<string, double>();
+    [Parameter] public Func<double, string>? ValueFormat { get; set; }
+    [Parameter] public Func<string, string>? ColorFor { get; set; }
+
+    private const double R = 50;
+    private const double Stroke = 16;
+    private static readonly double Circ = 2 * Math.PI * R;
+
+    private static readonly string[] Palette =
+    {
+        "var(--fx-primary)", "var(--fx-accent)", "#f59e0b", "#ef4444", "#0ea5e9", "#a855f7"
+    };
+
+    private bool _mounted;
+    private int? _hover;
+    private List<Segment> _segments = new();
+
+    private record Segment(string Label, double Value, double Fraction, string Color);
+
+    protected override void OnParametersSet()
+    {
+        var total = Data.Values.Where(v => v > 0).Sum();
+        var i = 0;
+        _segments = Data
+            .Where(kv => kv.Value > 0)
+            .Select(kv => new Segment(kv.Key, kv.Value, total > 0 ? kv.Value / total : 0, ResolveColor(kv.Key, i++)))
+            .ToList();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_mounted)
+        {
+            _mounted = true;
+            await Task.Delay(60);
+            StateHasChanged();
+        }
+    }
+
+    private string ResolveColor(string label, int index)
+    {
+        if (ColorFor is not null) return ColorFor(label);
+        return label.ToLowerInvariant() switch
+        {
+            "aws" => "var(--fx-aws)",
+            "azure" => "var(--fx-azure)",
+            "gcp" => "var(--fx-gcp)",
+            _ => Palette[index % Palette.Length]
+        };
+    }
+
+    private string CenterValue => _hover is { } h && h < _segments.Count
+        ? Format(_segments[h].Value)
+        : Format(_segments.Sum(s => s.Value));
+
+    private string CenterLabel => _hover is { } h && h < _segments.Count ? _segments[h].Label : "Total";
+
+    private string Format(double v) => (ValueFormat ?? (x => x.ToString("C0")))(v);
+
+    private static string F(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+}
+
+<style>
+    .fx-donut { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; justify-content: center; }
+    .fx-donut-ring { position: relative; width: 220px; height: 220px; }
+    .fx-donut-svg { width: 100%; height: 100%; transform: rotate(0deg); }
+    .fx-donut-seg { cursor: pointer; outline: none; }
+    .fx-donut-seg.is-hover { stroke-width: 20; }
+    .fx-donut-seg.is-dim { opacity: .45; }
+    .fx-donut-center {
+        position: absolute; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; pointer-events: none; text-align: center;
+    }
+    .fx-donut-center-value { font-size: 26px; font-weight: 800; color: var(--fx-text); letter-spacing: -.5px; }
+    .fx-donut-center-label { font-size: 12px; color: var(--fx-text-muted); text-transform: uppercase; letter-spacing: .08em; }
+    .fx-donut-legend { display: flex; flex-direction: column; gap: 6px; min-width: 150px; }
+    .fx-donut-legend-item {
+        display: flex; align-items: center; gap: 9px; padding: 7px 10px; border: 0;
+        background: transparent; border-radius: 10px; cursor: pointer; text-align: left;
+        color: var(--fx-text); transition: background .15s ease; width: 100%;
+    }
+    .fx-donut-legend-item:hover, .fx-donut-legend-item.is-hover { background: var(--fx-surface-2); }
+    .fx-donut-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+    .fx-donut-legend-name { flex: 1; font-size: 13px; font-weight: 600; }
+    .fx-donut-legend-value { font-size: 12px; color: var(--fx-text-muted); }
+</style>

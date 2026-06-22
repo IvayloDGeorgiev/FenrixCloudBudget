@@ -1,0 +1,103 @@
+@using System.Globalization
+@*
+   Animated area/line trend. The line + fill reveal left-to-right on first render and each
+   point shows a tooltip on hover. Pure SVG + CSS.
+*@
+
+<div class="fx-area">
+    <div class="fx-area-plot @(_mounted ? "is-revealed" : "")">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="fx-area-svg" aria-hidden="true">
+            <defs>
+                <linearGradient id="fxAreaFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="var(--fx-primary)" stop-opacity="0.35" />
+                    <stop offset="100%" stop-color="var(--fx-primary)" stop-opacity="0" />
+                </linearGradient>
+            </defs>
+            @if (_pts.Count > 1)
+            {
+                <path d="@AreaPath" fill="url(#fxAreaFill)" />
+                <path d="@LinePath" fill="none" stroke="var(--fx-primary)" stroke-width="1.6"
+                      vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+            }
+        </svg>
+
+        @for (var i = 0; i < _pts.Count; i++)
+        {
+            var p = _pts[i];
+            var idx = i;
+            <div class="fx-area-point @(_hover == idx ? "is-hover" : "")"
+                 style="left:@F(p.X)%;top:@F(p.Y)%"
+                 @onmouseover="@(() => _hover = idx)" @onmouseout="@(() => _hover = null)">
+                <div class="fx-area-tooltip">@p.Label<span>@Format(p.Value)</span></div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<KeyValuePair<string, double>> Points { get; set; } = Array.Empty<KeyValuePair<string, double>>();
+    [Parameter] public Func<double, string>? ValueFormat { get; set; }
+
+    private bool _mounted;
+    private int? _hover;
+    private List<Pt> _pts = new();
+    private string AreaPath = "";
+    private string LinePath = "";
+
+    private record Pt(string Label, double Value, double X, double Y);
+
+    protected override void OnParametersSet()
+    {
+        var data = Points.ToList();
+        var n = data.Count;
+        if (n == 0) { _pts = new(); AreaPath = LinePath = ""; return; }
+
+        var max = Math.Max(1d, data.Max(d => d.Value));
+        _pts = data.Select((d, i) =>
+        {
+            var x = n == 1 ? 50 : (double)i / (n - 1) * 100;
+            var y = 95 - d.Value / max * 85; // 5% top / bottom padding
+            return new Pt(d.Key, d.Value, x, y);
+        }).ToList();
+
+        var line = string.Join(" ", _pts.Select((p, i) => $"{(i == 0 ? "M" : "L")}{F(p.X)},{F(p.Y)}"));
+        LinePath = line;
+        AreaPath = $"M{F(_pts[0].X)},100 " + string.Join(" ", _pts.Select(p => $"L{F(p.X)},{F(p.Y)}")) + $" L{F(_pts[^1].X)},100 Z";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_mounted)
+        {
+            _mounted = true;
+            await Task.Delay(60);
+            StateHasChanged();
+        }
+    }
+
+    private string Format(double v) => (ValueFormat ?? (x => x.ToString("C0")))(v);
+    private static string F(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+}
+
+<style>
+    .fx-area { width: 100%; }
+    .fx-area-plot { position: relative; width: 100%; height: 230px; }
+    .fx-area-svg { width: 100%; height: 100%; display: block;
+        clip-path: inset(0 100% 0 0); transition: clip-path 1.1s cubic-bezier(.22,1,.36,1); }
+    .fx-area-plot.is-revealed .fx-area-svg { clip-path: inset(0 0 0 0); }
+    .fx-area-point {
+        position: absolute; width: 10px; height: 10px; transform: translate(-50%, -50%);
+        border-radius: 50%; background: var(--fx-surface); border: 2px solid var(--fx-primary);
+        cursor: pointer; opacity: 0; transition: opacity .3s ease .6s, transform .15s ease;
+    }
+    .fx-area-plot.is-revealed .fx-area-point { opacity: 1; }
+    .fx-area-point.is-hover { transform: translate(-50%, -50%) scale(1.35); }
+    .fx-area-tooltip {
+        position: absolute; bottom: 150%; left: 50%; transform: translateX(-50%) scale(.96);
+        background: var(--fx-text); color: var(--fx-surface); padding: 6px 10px; border-radius: 9px;
+        font-size: 11px; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none;
+        transition: opacity .15s ease, transform .15s ease; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .fx-area-tooltip span { font-weight: 800; }
+    .fx-area-point.is-hover .fx-area-tooltip { opacity: 1; transform: translateX(-50%) scale(1); }
+</style>

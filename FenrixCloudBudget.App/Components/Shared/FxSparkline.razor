@@ -1,0 +1,58 @@
+@using System.Globalization
+@*
+   Tiny inline trend line (e.g. per-project spend over the range). Reveals left-to-right.
+*@
+
+<span class="fx-spark @(_mounted ? "is-revealed" : "")">
+    <svg viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true">
+        @if (_path.Length > 0)
+        {
+            <path d="@_area" fill="@Color" fill-opacity="0.14" />
+            <path d="@_path" fill="none" stroke="@Color" stroke-width="2"
+                  vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+        }
+    </svg>
+</span>
+
+@code {
+    [Parameter] public IReadOnlyList<double> Values { get; set; } = Array.Empty<double>();
+    [Parameter] public string Color { get; set; } = "var(--fx-primary)";
+
+    private bool _mounted;
+    private string _path = "";
+    private string _area = "";
+
+    protected override void OnParametersSet()
+    {
+        var n = Values.Count;
+        if (n < 2) { _path = _area = ""; return; }
+
+        var max = Math.Max(1d, Values.Max());
+        var min = Values.Min();
+        var span = Math.Max(1d, max - min);
+
+        string X(int i) => F((double)i / (n - 1) * 100);
+        string Y(double v) => F(26 - (v - min) / span * 24);
+
+        _path = string.Join(" ", Values.Select((v, i) => $"{(i == 0 ? "M" : "L")}{X(i)},{Y(v)}"));
+        _area = $"M{X(0)},28 " + string.Join(" ", Values.Select((v, i) => $"L{X(i)},{Y(v)}")) + $" L{X(n - 1)},28 Z";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_mounted)
+        {
+            _mounted = true;
+            await Task.Delay(40);
+            StateHasChanged();
+        }
+    }
+
+    private static string F(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+}
+
+<style>
+    .fx-spark { display: inline-block; width: 96px; height: 28px; vertical-align: middle; }
+    .fx-spark svg { width: 100%; height: 100%; clip-path: inset(0 100% 0 0); transition: clip-path .8s cubic-bezier(.22,1,.36,1); }
+    .fx-spark.is-revealed svg { clip-path: inset(0 0 0 0); }
+</style>

@@ -913,6 +913,12 @@ button,
 .fx-filter-bar {
     margin-bottom: var(--fx-gap);
     padding: 17px 19px 13px;
+    /* Keep the filters reachable while scrolling through the charts below. */
+    position: sticky;
+    top: 8px;
+    z-index: 30;
+    backdrop-filter: blur(8px);
+    box-shadow: var(--fx-shadow);
 }
 
 .fx-filter-row {
@@ -941,10 +947,73 @@ button,
     flex: 0 0 auto;
 }
 
+/* ---- Filter accordion: collapsible on tablet/mobile, always open on desktop ---- */
+.fx-filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    color: var(--fx-text);
+}
+
+.fx-filter-summary {
+    display: none;
+    flex: 1;
+    text-align: left;
+    color: var(--fx-text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fx-filter-chevron {
+    margin-left: auto;
+    color: var(--fx-text-muted);
+    transition: transform .25s ease;
+}
+
+.fx-filter-bar.is-open .fx-filter-chevron { transform: rotate(180deg); }
+
+.fx-filter-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    overflow: hidden;
+    transition: max-height .3s ease, opacity .25s ease, margin-top .25s ease;
+}
+
+/* Desktop: filters are always visible; the toggle is just a static header. */
+@media (min-width: 1025px) {
+    .fx-filter-toggle { cursor: default; }
+    .fx-filter-chevron,
+    .fx-filter-summary { display: none; }
+    .fx-filter-controls { max-height: none; opacity: 1; margin-top: 12px; }
+}
+
+/* Tablet & mobile: tap the header to expand/collapse. */
+@media (max-width: 1024px) {
+    .fx-filter-summary { display: block; }
+    .fx-filter-bar.is-open .fx-filter-controls { max-height: 680px; opacity: 1; margin-top: 14px; }
+    .fx-filter-bar.is-collapsed .fx-filter-controls { max-height: 0; opacity: 0; margin-top: 0; }
+}
+
 .fx-dashboard-grid {
     display: grid;
-    grid-template-columns: minmax(300px, .95fr) minmax(380px, 1.15fr) minmax(340px, 1.1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--fx-gap);
+}
+
+/* The budget table reads better full-width below the two charts. */
+.fx-dashboard-grid > .fx-budget-card {
+    grid-column: 1 / -1;
+    order: 3;
 }
 
 .fx-chart-card {
@@ -1418,6 +1487,15 @@ button,
     font-weight: 600;
     color: var(--fx-primary);
 }
+
+/* Dashboard spend-trend card + budget sparkline cell. */
+.fx-trend-card { margin-bottom: 16px; }
+.fx-trend-bottom { margin-top: var(--fx-gap); margin-bottom: 0; }
+.fx-spark-empty { color: var(--fx-text-muted); }
+
+/* Top budget card: size to its content (no tall min-height) and keep a clear gap
+   above the charts grid so their hover/elevation areas don't overlap. */
+.fx-budget-section { min-height: 0; margin-bottom: var(--fx-gap); }
 
 .fx-discovery-list {
     max-height: 220px;
@@ -2376,11 +2454,11 @@ button,
     }
 
     .fx-dashboard-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
     }
 
     .fx-dashboard-grid > :last-child {
-        grid-column: 1 / -1;
+        grid-column: auto;
     }
 
     .fx-theme-gallery {

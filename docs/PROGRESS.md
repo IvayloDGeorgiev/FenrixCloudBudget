@@ -7,6 +7,14 @@
 **Last updated:** 2026-06-22
 **Current focus:** Phases 4–5 implemented (via Codex). Latest change: Projects page now supports editing/removing **manual** services (cloud-synced services are locked) and full **per-project budget** CRUD so pay-as-you-go spend triggers threshold alerts before overspend. Next: manual Windows/API verification, then complete hosted OTP sign-in and bidirectional SaaS sync.
 
+### Recent: modern dashboard charts
+- ✅ Replaced MudChart with custom animated, interactive SVG/CSS components in `Components/Shared`:
+  `FxDonutChart` (provider mix, draw-in + hover highlight + centre total), `FxBarChart` (top cost
+  drivers, grow-in bars + hover tooltips), `FxAreaChart` (new "Spend trend" daily card, left-to-right
+  reveal + point tooltips), and `FxSparkline` (per-project mini trend in the budget table — "a chart
+  per project"). No JS charting dependency; works in the WebView and respects theme tokens.
+- Possible next: a dedicated per-project detail view with its own larger trend + service breakdown.
+
 ### Recent: test data mode (testing aid)
 - ✅ Isolated **test database** (`fenrix.test.db`) + `RoutingDbContextFactory` so the whole app reads/writes test data when the toggle is on — even if a real DB/SQL Server is connected. Real data is never touched.
 - ✅ `TestDataSeeder`: 5 clients × 2–3 projects, mixed manual/connected services, budgets, ~30 days of cost records, sample cloud accounts + reminders, and the bootstrap admin (so sign-in works in test mode).
