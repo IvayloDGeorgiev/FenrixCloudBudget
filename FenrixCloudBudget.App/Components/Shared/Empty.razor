@@ -1,0 +1,11 @@
+@*
+   Small empty-state placeholder used across charts/lists when there's no data yet.
+*@
+<div style="text-align:center;color:var(--fx-text-muted);padding:24px 8px">
+    <MudIcon Icon="@Icons.Material.Outlined.Inbox" Size="Size.Large" />
+    <div style="margin-top:8px;font-size:13px">@Text</div>
+</div>
+
+@code {
+    [Parameter] public string Text { get; set; } = "Nothing here yet.";
+}

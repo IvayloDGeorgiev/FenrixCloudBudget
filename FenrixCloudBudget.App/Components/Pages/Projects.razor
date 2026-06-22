@@ -1,0 +1,132 @@
+@page "/projects"
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject ISnackbar Snackbar
+
+<div style="display:flex;align-items:center;gap:12px">
+    <div>
+        <h1 class="fx-page-title">Projects</h1>
+        <p class="fx-page-sub">Group cloud services across providers into client/project buckets.</p>
+    </div>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => Edit(new Project()))">
+        New project
+    </MudButton>
+</div>
+
+<div class="fx-tiles">
+    @foreach (var p in _projects)
+    {
+        <div class="fx-tile" @onclick="@(() => Edit(p))" style="cursor:pointer">
+            <div class="fx-tile-title">@p.Name</div>
+            <div style="color:var(--fx-text-muted);font-size:13px">@(p.Client?.Name ?? "No client")</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+                @foreach (var prov in p.Services.Select(s => s.Provider).Distinct())
+                {
+                    <span class="fx-chip @prov.ToString().ToLower()">@prov</span>
+                }
+            </div>
+            <div class="fx-tile-stat" style="font-size:20px">
+                @p.Services.Sum(s => s.EstimatedCost).ToString("C0") <small>/mo est. (@p.Currency)</small>
+            </div>
+        </div>
+    }
+    @if (_projects.Count == 0) { <Empty Text="No projects yet." /> }
+</div>
+
+@if (_editing is not null)
+{
+    <MudDialog @bind-Visible="_dialogOpen" Options="new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true }">
+        <TitleContent>@(_editing.Id == 0 ? "New project" : _editing.Name)</TitleContent>
+        <DialogContent>
+            <MudTextField @bind-Value="_editing.Name" Label="Name *" Required="true" />
+            <MudTextField @bind-Value="_editing.Description" Label="Description" Lines="2" />
+            <div style="display:flex;gap:12px">
+                <MudSelect T="int?" @bind-Value="_editing.ClientId" Label="Client" Clearable="true" Style="flex:1">
+                    @foreach (var c in _clients)
+                    {
+                        <MudSelectItem T="int?" Value="@c.Id">@c.Name</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSelect T="string" @bind-Value="_editing.Currency" Label="Currency" Style="width:120px">
+                    @foreach (var cur in Currencies)
+                    {
+                        <MudSelectItem Value="@cur">@cur</MudSelectItem>
+                    }
+                </MudSelect>
+            </div>
+
+            <MudText Typo="Typo.subtitle2" Class="mt-4">Services</MudText>
+            <MudText Typo="Typo.caption" Class="mb-2">
+                Add services manually, or use "Choose existing resources" (Phase 3) to import from a connected account.
+            </MudText>
+            @foreach (var s in _editing.Services)
+            {
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+                    <span class="fx-chip @s.Provider.ToString().ToLower()">@s.Provider</span>
+                    <span style="flex:1">@s.Name</span>
+                    <span>@s.EstimatedCost.ToString("C0")</span>
+                </div>
+            }
+            <div style="display:flex;gap:8px;align-items:end;margin-top:8px">
+                <MudTextField @bind-Value="_newService.Name" Label="Service name" Style="flex:1" />
+                <MudSelect T="CloudProvider" @bind-Value="_newService.Provider" Label="Provider" Style="width:120px">
+                    <MudSelectItem Value="CloudProvider.Aws">AWS</MudSelectItem>
+                    <MudSelectItem Value="CloudProvider.Azure">Azure</MudSelectItem>
+                    <MudSelectItem Value="CloudProvider.Gcp">GCP</MudSelectItem>
+                </MudSelect>
+                <MudNumericField @bind-Value="_newService.EstimatedCost" Label="Est./mo" Style="width:110px" />
+                <MudButton OnClick="AddService">Add</MudButton>
+            </div>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="@(() => _dialogOpen = false)">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Save</MudButton>
+        </DialogActions>
+    </MudDialog>
+}
+
+@code {
+    private static readonly string[] Currencies = { "USD", "EUR", "GBP", "BGN", "CAD", "AUD" };
+
+    private List<Project> _projects = new();
+    private List<Client> _clients = new();
+    private Project? _editing;
+    private Service _newService = new();
+    private bool _dialogOpen;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _projects = await db.Projects.Include(p => p.Client).Include(p => p.Services).OrderBy(p => p.Name).ToListAsync();
+        _clients = await db.Clients.OrderBy(c => c.Name).ToListAsync();
+    }
+
+    private void Edit(Project p)
+    {
+        _editing = p;
+        _newService = new Service();
+        _dialogOpen = true;
+    }
+
+    private void AddService()
+    {
+        if (_editing is null || string.IsNullOrWhiteSpace(_newService.Name)) return;
+        _newService.Currency = _editing.Currency;
+        _editing.Services.Add(_newService);
+        _newService = new Service();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null || string.IsNullOrWhiteSpace(_editing.Name)) return;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (_editing.Id == 0) db.Projects.Add(_editing);
+        else db.Projects.Update(_editing);
+        await db.SaveChangesAsync();
+        _dialogOpen = false;
+        Snackbar.Add("Project saved", Severity.Success);
+        await LoadAsync();
+    }
+}

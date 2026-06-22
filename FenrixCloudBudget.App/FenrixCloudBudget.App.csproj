@@ -8,6 +8,10 @@
     <SingleProject>true</SingleProject>
     <EnableDefaultCssItems>false</EnableDefaultCssItems>
 
+    <!-- Build an unpackaged Windows app (no MSIX/AppxManifest required for dev runs). -->
+    <WindowsPackageType Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">None</WindowsPackageType>
+    <WindowsAppSDKSelfContained Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">true</WindowsAppSDKSelfContained>
+
     <ApplicationTitle>FenrixCloudBudget</ApplicationTitle>
     <ApplicationId>com.fenrix.cloudbudget</ApplicationId>
     <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>

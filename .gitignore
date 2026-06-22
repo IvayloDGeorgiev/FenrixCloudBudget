@@ -24,3 +24,8 @@ secrets.json
 ## OS
 .DS_Store
 Thumbs.db
+
+## Scratch / probe files (safe to delete)
+_probe.txt
+_b.txt
+_wtest.txt

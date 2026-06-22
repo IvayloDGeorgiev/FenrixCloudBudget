@@ -1,0 +1,34 @@
+@inherits LayoutComponentBase
+@inject ThemeService Theme
+@inject IJSRuntime JS
+@implements IDisposable
+
+<div class="fx-shell">
+    <NavMenu />
+    <main class="fx-main">
+        <h1 style="display:none">FenrixCloudBudget</h1>
+        @Body
+    </main>
+</div>
+
+@code {
+    protected override void OnInitialized() => Theme.Changed += OnThemeChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await ApplyThemeAsync();
+    }
+
+    private async void OnThemeChanged()
+    {
+        await ApplyThemeAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // Themes are CSS-variable token sets; switching = setting data-theme on <html>.
+    private async Task ApplyThemeAsync()
+        => await JS.InvokeVoidAsync("document.documentElement.setAttribute", "data-theme", Theme.CurrentThemeId);
+
+    public void Dispose() => Theme.Changed -= OnThemeChanged;
+}

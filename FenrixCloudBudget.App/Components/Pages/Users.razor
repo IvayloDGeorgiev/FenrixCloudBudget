@@ -1,0 +1,41 @@
+@page "/users"
+@inject IDbContextFactory<AppDbContext> DbFactory
+
+<h1 class="fx-page-title">Users</h1>
+<p class="fx-page-sub">Invite teammates and assign roles. Active in server / SaaS mode.</p>
+
+<div class="fx-card" style="margin-bottom:16px">
+    <MudAlert Severity="Severity.Info" Dense="true">
+        Multi-user, email invitations and passwordless 6-digit OTP login arrive in <strong>Phase 5</strong>
+        (they require the backend API for secure email + code validation). In local mode the app runs single-user.
+    </MudAlert>
+</div>
+
+<div class="fx-card">
+    @if (_users.Count == 0)
+    {
+        <Empty Text="No users yet (local single-user mode)." />
+    }
+    else
+    {
+        <MudSimpleTable Hover="true" Dense="true">
+            <thead><tr><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+            <tbody>
+                @foreach (var u in _users)
+                {
+                    <tr><td>@u.Email</td><td>@u.Role</td><td>@u.Status</td></tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+</div>
+
+@code {
+    private List<User> _users = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _users = await db.Users.ToListAsync();
+    }
+}

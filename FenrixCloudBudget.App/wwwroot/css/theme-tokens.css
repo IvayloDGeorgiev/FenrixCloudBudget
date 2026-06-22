@@ -1,0 +1,90 @@
+/*
+  Design tokens. Each theme is a set of CSS variables selected by [data-theme].
+  Switching themes = swapping the attribute on <html>; no rebuild, easy to extend.
+  Add a new theme by copying a block and changing the values + registering it in ThemeService.
+*/
+
+:root {
+    --fx-radius: 16px;
+    --fx-radius-sm: 10px;
+    --fx-gap: 16px;
+    --fx-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+    --fx-shadow-sm: 0 2px 8px rgba(16, 24, 40, 0.08);
+    --fx-font: "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
+}
+
+/* Aurora — light (default) */
+[data-theme="aurora"] {
+    --fx-bg: #f6f7fb;
+    --fx-surface: #ffffff;
+    --fx-surface-2: #f0f2f8;
+    --fx-text: #111827;
+    --fx-text-muted: #6b7280;
+    --fx-border: #e5e7eb;
+    --fx-primary: #6c5ce7;
+    --fx-primary-contrast: #ffffff;
+    --fx-accent: #00b894;
+    --fx-aws: #ff9900;
+    --fx-azure: #0078d4;
+    --fx-gcp: #ea4335;
+    --fx-danger: #ef4444;
+    --fx-warn: #f59e0b;
+    --fx-ok: #10b981;
+}
+
+/* Midnight — dark */
+[data-theme="midnight"] {
+    --fx-bg: #0b1020;
+    --fx-surface: #141a2e;
+    --fx-surface-2: #1c2440;
+    --fx-text: #e6e9f2;
+    --fx-text-muted: #9aa3b8;
+    --fx-border: #28304d;
+    --fx-primary: #8b7bff;
+    --fx-primary-contrast: #0b1020;
+    --fx-accent: #2dd4bf;
+    --fx-aws: #ffb454;
+    --fx-azure: #4aa3ff;
+    --fx-gcp: #ff6b5e;
+    --fx-danger: #f87171;
+    --fx-warn: #fbbf24;
+    --fx-ok: #34d399;
+}
+
+/* Slate — neutral */
+[data-theme="slate"] {
+    --fx-bg: #eef1f4;
+    --fx-surface: #ffffff;
+    --fx-surface-2: #e6eaef;
+    --fx-text: #1f2937;
+    --fx-text-muted: #64748b;
+    --fx-border: #d8dee6;
+    --fx-primary: #334155;
+    --fx-primary-contrast: #ffffff;
+    --fx-accent: #0ea5e9;
+    --fx-aws: #ff9900;
+    --fx-azure: #0078d4;
+    --fx-gcp: #ea4335;
+    --fx-danger: #ef4444;
+    --fx-warn: #f59e0b;
+    --fx-ok: #10b981;
+}
+
+/* Mint — accent */
+[data-theme="mint"] {
+    --fx-bg: #f1faf6;
+    --fx-surface: #ffffff;
+    --fx-surface-2: #e3f3ec;
+    --fx-text: #0f3d2e;
+    --fx-text-muted: #5b7d70;
+    --fx-border: #cfe8dd;
+    --fx-primary: #0ca678;
+    --fx-primary-contrast: #ffffff;
+    --fx-accent: #14b8a6;
+    --fx-aws: #ff9900;
+    --fx-azure: #0078d4;
+    --fx-gcp: #ea4335;
+    --fx-danger: #ef4444;
+    --fx-warn: #f59e0b;
+    --fx-ok: #10b981;
+}

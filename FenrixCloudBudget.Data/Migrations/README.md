@@ -9,8 +9,8 @@ Generate it once:
 # from the repo root
 dotnet tool install --global dotnet-ef        # first time only
 dotnet ef migrations add InitialCreate `
-  --project src/FenrixCloudBudget.Data `
-  --startup-project src/FenrixCloudBudget.Api
+  --project FenrixCloudBudget.Data `
+  --startup-project FenrixCloudBudget.Api
 ```
 
 `DesignTimeDbContextFactory` targets SQLite, so no live database is needed to scaffold

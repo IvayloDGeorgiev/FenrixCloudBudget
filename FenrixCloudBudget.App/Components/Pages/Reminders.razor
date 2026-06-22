@@ -1,0 +1,130 @@
+@page "/reminders"
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject ISnackbar Snackbar
+
+<div style="display:flex;align-items:center;gap:12px">
+    <div>
+        <h1 class="fx-page-title">Reminders</h1>
+        <p class="fx-page-sub">Client secret & certificate expiries, plus custom reminders — never miss a rotation.</p>
+    </div>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => Edit(new Reminder { DueDate = DateTimeOffset.Now.AddDays(30) }))">
+        New reminder
+    </MudButton>
+</div>
+
+<div class="fx-card">
+    @if (_reminders.Count == 0)
+    {
+        <Empty Text="No reminders yet." />
+    }
+    else
+    {
+        <MudSimpleTable Hover="true" Dense="true">
+            <thead><tr><th>Title</th><th>Type</th><th>Due</th><th>In</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var r in _reminders.OrderBy(r => r.DueDate))
+                {
+                    var days = (DateOnly.FromDateTime(r.DueDate.UtcDateTime).DayNumber - DateOnly.FromDateTime(DateTime.UtcNow).DayNumber);
+                    <tr>
+                        <td>@r.Title</td>
+                        <td>@Pretty(r.Type)</td>
+                        <td>@r.DueDate.LocalDateTime.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            <MudChip T="string" Size="Size.Small"
+                                     Color="@(days < 0 ? Color.Error : days <= 7 ? Color.Warning : Color.Default)">
+                                @(days < 0 ? $"{-days}d overdue" : $"{days}d")
+                            </MudChip>
+                        </td>
+                        <td>@r.Status</td>
+                        <td style="text-align:right">
+                            <MudIconButton Icon="@Icons.Material.Filled.Snooze" Size="Size.Small" aria-label="Snooze 7 days" OnClick="@(() => Snooze(r))" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Done" Size="Size.Small" aria-label="Mark done" OnClick="@(() => Done(r))" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="@(() => Edit(r))" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <MudDialog @bind-Visible="_dialogOpen" Options="new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true }">
+        <TitleContent>@(_editing.Id == 0 ? "New reminder" : "Edit reminder")</TitleContent>
+        <DialogContent>
+            <MudTextField @bind-Value="_editing.Title" Label="Title *" Required="true" />
+            <MudSelect T="ReminderType" @bind-Value="_editing.Type" Label="Type">
+                <MudSelectItem Value="ReminderType.ClientSecret">Client secret</MudSelectItem>
+                <MudSelectItem Value="ReminderType.Certificate">Certificate</MudSelectItem>
+                <MudSelectItem Value="ReminderType.Custom">Custom</MudSelectItem>
+            </MudSelect>
+            <MudDatePicker Label="Due date" Date="_editing.DueDate.LocalDateTime" DateChanged="d => _editing.DueDate = d ?? DateTime.Now" />
+            <MudTextField @bind-Value="_editing.LeadTimesDays" Label="Lead times (days, comma-separated)" />
+            <MudTextField @bind-Value="_editing.Notes" Label="Notes" Lines="2" />
+            <MudNumericField @bind-Value="_editing.RecurrenceDays" Label="Repeat every N days (0 = one-off)" />
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="@(() => _dialogOpen = false)">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Save</MudButton>
+        </DialogActions>
+    </MudDialog>
+}
+
+@code {
+    private List<Reminder> _reminders = new();
+    private Reminder? _editing;
+    private bool _dialogOpen;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _reminders = await db.Reminders.ToListAsync();
+    }
+
+    private static string Pretty(ReminderType t) => t switch
+    {
+        ReminderType.ClientSecret => "Client secret",
+        ReminderType.Certificate => "Certificate",
+        _ => "Custom"
+    };
+
+    private void Edit(Reminder r) { _editing = r; _dialogOpen = true; }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null || string.IsNullOrWhiteSpace(_editing.Title)) return;
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (_editing.Id == 0) db.Reminders.Add(_editing);
+        else db.Reminders.Update(_editing);
+        await db.SaveChangesAsync();
+        _dialogOpen = false;
+        Snackbar.Add("Reminder saved", Severity.Success);
+        await LoadAsync();
+    }
+
+    private async Task Snooze(Reminder r)
+    {
+        r.SnoozedUntilUtc = DateTimeOffset.UtcNow.AddDays(7);
+        r.Status = ReminderStatus.Snoozed;
+        await Persist(r, "Snoozed 7 days");
+    }
+
+    private async Task Done(Reminder r)
+    {
+        r.Status = ReminderStatus.Done;
+        await Persist(r, "Marked done");
+    }
+
+    private async Task Persist(Reminder r, string msg)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Reminders.Update(r);
+        await db.SaveChangesAsync();
+        Snackbar.Add(msg, Severity.Success);
+        await LoadAsync();
+    }
+}

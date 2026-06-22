@@ -1,0 +1,91 @@
+html, body {
+    margin: 0;
+    font-family: var(--fx-font);
+    background: var(--fx-bg);
+    color: var(--fx-text);
+}
+
+/* ---- Splash (shown until Blazor renders) ---- */
+.fx-splash {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background: var(--fx-bg);
+}
+.fx-splash-logo { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+.fx-splash-logo span { color: var(--fx-primary); }
+.fx-splash-tag { color: var(--fx-text-muted); font-size: 14px; }
+.fx-splash-spinner {
+    width: 34px; height: 34px; margin-top: 8px;
+    border: 3px solid var(--fx-border);
+    border-top-color: var(--fx-primary);
+    border-radius: 50%;
+    animation: fx-spin 0.9s linear infinite;
+}
+@keyframes fx-spin { to { transform: rotate(360deg); } }
+
+/* ---- Layout ---- */
+.fx-shell { display: flex; min-height: 100vh; }
+.fx-main { flex: 1; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+.fx-page-title { font-size: 24px; font-weight: 700; margin: 0 0 4px; }
+.fx-page-sub { color: var(--fx-text-muted); margin: 0 0 20px; }
+
+/* ---- Cards ---- */
+.fx-card {
+    background: var(--fx-surface);
+    border: 1px solid var(--fx-border);
+    border-radius: var(--fx-radius);
+    box-shadow: var(--fx-shadow-sm);
+    padding: 20px;
+}
+
+/* ---- Landing tiles ---- */
+.fx-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--fx-gap); }
+.fx-tile {
+    background: var(--fx-surface);
+    border: 1px solid var(--fx-border);
+    border-radius: var(--fx-radius);
+    box-shadow: var(--fx-shadow-sm);
+    padding: 22px;
+    text-decoration: none;
+    color: var(--fx-text);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    display: flex; flex-direction: column; gap: 10px;
+}
+.fx-tile:hover { transform: translateY(-3px); box-shadow: var(--fx-shadow); }
+.fx-tile-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: grid; place-items: center;
+    background: color-mix(in srgb, var(--fx-primary) 14%, transparent);
+    color: var(--fx-primary);
+}
+.fx-tile-title { font-weight: 600; font-size: 16px; }
+.fx-tile-stat { font-size: 26px; font-weight: 800; }
+.fx-tile-stat small { font-size: 13px; font-weight: 500; color: var(--fx-text-muted); }
+
+/* ---- Provider chips ---- */
+.fx-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.fx-chip.aws { background: color-mix(in srgb, var(--fx-aws) 18%, transparent); color: var(--fx-aws); }
+.fx-chip.azure { background: color-mix(in srgb, var(--fx-azure) 18%, transparent); color: var(--fx-azure); }
+.fx-chip.gcp { background: color-mix(in srgb, var(--fx-gcp) 18%, transparent); color: var(--fx-gcp); }
+
+/* ---- Ad slot (kept off data-entry screens) ---- */
+.fx-ad-slot {
+    margin-top: 18px; padding: 10px; text-align: center;
+    border: 1px dashed var(--fx-border); border-radius: var(--fx-radius-sm);
+    color: var(--fx-text-muted); font-size: 12px;
+}
+
+#blazor-error-ui {
+    display: none; position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--fx-warn); color: #1f2937; padding: 10px 16px; z-index: 1000;
+}
+#blazor-error-ui .dismiss { cursor: pointer; float: right; }
+
+@media (max-width: 640px) {
+    .fx-main { padding: 16px; }
+}

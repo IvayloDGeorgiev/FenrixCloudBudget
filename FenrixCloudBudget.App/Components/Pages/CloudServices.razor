@@ -1,0 +1,36 @@
+@page "/cloud-services"
+@inject IDbContextFactory<AppDbContext> DbFactory
+
+<h1 class="fx-page-title">Cloud Services</h1>
+<p class="fx-page-sub">Connect AWS, Azure & GCP accounts, discover resources, and map them to projects.</p>
+
+<div class="fx-card" style="margin-bottom:16px">
+    <MudAlert Severity="Severity.Info" Dense="true">
+        Live connections, resource discovery and cost sync arrive in <strong>Phases 3–4</strong>.
+        The connector layer (AWS Cost Explorer + Resource Groups Tagging, Azure Resource Graph + Cost Management,
+        GCP Cloud Asset Inventory + BigQuery billing export) is already built behind <code>ICloudConnector</code>.
+    </MudAlert>
+</div>
+
+<div class="fx-tiles">
+    @foreach (var a in _accounts)
+    {
+        <div class="fx-tile">
+            <span class="fx-chip @a.Provider.ToString().ToLower()">@a.Provider</span>
+            <div class="fx-tile-title">@a.DisplayName</div>
+            <div style="font-size:12px;color:var(--fx-text-muted)">@a.AccountOrSubscriptionId</div>
+            <div style="font-size:12px">@(a.LastSyncedUtc is null ? "Never synced" : $"Synced {a.LastSyncedUtc:yyyy-MM-dd}")</div>
+        </div>
+    }
+    @if (_accounts.Count == 0) { <Empty Text="No cloud accounts connected yet." /> }
+</div>
+
+@code {
+    private List<CloudAccount> _accounts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _accounts = await db.CloudAccounts.ToListAsync();
+    }
+}

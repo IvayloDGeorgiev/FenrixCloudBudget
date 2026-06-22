@@ -19,12 +19,9 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
-            .UseLocalNotification()
-            .ConfigureFonts(fonts =>
-            {
-                fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-                fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
-            });
+            .UseLocalNotification();
+        // Fonts: the Blazor UI uses system fonts via CSS (see wwwroot/css). Add MAUI
+        // .ttf fonts here later if native MAUI controls need a custom typeface.
 
         builder.Services.AddMauiBlazorWebView();
         builder.Services.AddMudServices();
@@ -64,7 +61,7 @@ public static class MauiProgram
         {
             using var scope = app.Services.CreateScope();
             await scope.ServiceProvider.GetRequiredService<IDataProvider>().InitializeAsync();
-            await app.Services.GetRequiredService<Services.Sync.AlertSchedulerService>()
+            await app.Services.GetRequiredService<FenrixCloudBudget.Services.Sync.AlertSchedulerService>()
                 .StartAsync(CancellationToken.None);
         });
 
