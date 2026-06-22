@@ -23,7 +23,7 @@ public sealed class SesEmailSender : IEmailSender
         new EmailFieldSpec("accessKeyId", "Access key ID"),
         new EmailFieldSpec("secretAccessKey", "Secret access key", IsSecret: true),
         new EmailFieldSpec("region", "Region", Placeholder: "eu-west-1"),
-        new EmailFieldSpec("fromAddress", "From address (verified domain)")
+        new EmailFieldSpec("fromAddress", "Send-from email (no-reply)", Placeholder: "no-reply@yourdomain.com")
     };
 
     public Task<EmailResult> SendAsync(EmailMessage message, CancellationToken ct = default)
@@ -45,7 +45,7 @@ public sealed class AzureCommunicationEmailSender : IEmailSender
     public IReadOnlyList<EmailFieldSpec> FieldSchema => new[]
     {
         new EmailFieldSpec("connectionString", "Connection string", IsSecret: true),
-        new EmailFieldSpec("fromAddress", "From address")
+        new EmailFieldSpec("fromAddress", "Send-from email (no-reply)", Placeholder: "no-reply@yourdomain.com")
     };
 
     public Task<EmailResult> SendAsync(EmailMessage message, CancellationToken ct = default)

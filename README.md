@@ -6,9 +6,10 @@
 >
 > **Tagline:** Group. Budget. Stay ahead.
 
-**Status:** Phases 1–3 implemented — manual budgeting + UI + settings + notifications, plus
-live cloud account connection, resource discovery, and grouping resources into projects.
-Cost sync (Phase 4) and the multi-user backend (Phase 5) are scaffolded behind interfaces.
+**Status:** Phases 1–4 complete and Phase 5 largely complete — manual budgeting, themed UI,
+notifications, live AWS/Azure/GCP account connection + resource discovery + cost sync, a budget
+"radar" dashboard, and JWT auth with an admin Users workspace. Remaining: Play-Store polish
+(AdMob, PDF/CSV export), invited-member OTP screens, and SaaS push sync.
 See `docs/PROGRESS.md` for live per-phase status and `docs/IMPLEMENTATION_PLAN.md` for the design.
 
 ---
@@ -42,7 +43,7 @@ Dependency direction: `App`/`Api` → `Services` → `Data` → `Core`; `Cloud` 
 ## First-time setup
 
 ```powershell
-cd C:\Users\Ivo\Documents\Claude\Projects\FenrixCloudBudget
+cd <path-to>\FenrixCloudBudget   # e.g. C:\Users\<you>\Documents\FenrixCloudBudget
 
 # 1) Generate the initial EF migration (the model is SQLite-compatible at design time)
 dotnet ef migrations add InitialCreate --project FenrixCloudBudget.Data --startup-project FenrixCloudBudget.Api
@@ -72,6 +73,85 @@ small demo project so the dashboard isn't empty.
 
 ---
 
+## Connecting your cloud accounts
+
+Open **Cloud Accounts → Connect account**, pick a provider, and fill in the fields below. Use a
+dedicated, **read-only** identity for each provider — Fenrix never needs write access. Credentials
+are encrypted at rest (AES-256-GCM); only a masked hint (`abcd••••`) is ever shown again.
+
+After connecting, use **Discover resources** on the account to pull in resources, then group them
+into projects from **Projects → Choose existing resources**. Costs appear once a sync runs
+(automatically on a schedule, or via the dashboard's manual refresh).
+
+> Two things to know: resource **discovery** and **cost** use different services on every provider,
+> so both sets of permissions below are needed. And cost data always lags real time by up to ~24h —
+> that's a provider limitation, not the app.
+
+### Amazon Web Services (AWS)
+
+What you enter: **Access key ID**, **Secret access key**, and an optional default **Region**
+(defaults to `us-east-1`). The account is identified automatically by its real 12-digit ID.
+
+Setup:
+
+1. In the AWS Console, **enable Cost Explorer** once (Billing → Cost Explorer). Cost data isn't
+   available via the API until this is turned on.
+2. Create an **IAM user** for Fenrix with **programmatic access** (or reuse a read-only one).
+3. Attach a least-privilege policy granting these actions (resource `*`):
+   - `ce:GetCostAndUsage` — cost queries
+   - `tag:GetResources` — resource discovery (Resource Groups Tagging API)
+   - `sts:GetCallerIdentity` — credential validation + account ID
+4. Create an **access key** for that user and paste the key ID + secret into Fenrix.
+
+Notes: Cost Explorer is a global service (Fenrix pins it to `us-east-1` for you), so the region
+field only affects discovery. Discovery sweeps all commercial regions but the Tagging API only
+returns **tagged** resources — untagged ones still show up in total spend, just not as individual
+resources. Each Cost Explorer call costs ~$0.01.
+
+### Microsoft Azure
+
+What you enter: **Tenant ID**, **Client ID**, **Subscription ID**, and **Client secret**.
+
+Setup:
+
+1. In **Entra ID → App registrations**, create a new registration (single tenant is fine). Note its
+   **Application (client) ID** and **Directory (tenant) ID**.
+2. Under that app, go to **Certificates & secrets → New client secret**, and copy the secret
+   **value** (not the ID) immediately.
+3. In your **Subscription → Access control (IAM)**, assign the app these roles at **subscription
+   scope**:
+   - **Reader** — resource discovery (Resource Graph)
+   - **Cost Management Reader** — cost queries
+4. Copy the **Subscription ID** and paste all four values into Fenrix.
+
+Notes: Fenrix validates that the subscription is actually visible to the app before saving, so if
+the role assignments haven't propagated yet you'll get a clear message — wait a minute and retry.
+
+### Google Cloud Platform (GCP)
+
+What you enter: **Project ID**, **Service account key (JSON)**, and — only if you want cost data —
+**Billing export project**, **Billing export dataset**, and **Billing export table**.
+
+Setup:
+
+1. **Enable the Cloud Asset Inventory API** on the project (`cloudasset.googleapis.com`).
+2. Create a **service account** and download its **JSON key**.
+3. Grant the service account **Cloud Asset Viewer** on the project (resource discovery).
+4. For costs, set up a **BigQuery billing export** (Billing → Billing export → BigQuery export). The
+   export can live in a different project than your resources, which is why the billing
+   project/dataset/table are entered separately. Then grant the service account:
+   - **BigQuery Job User** on the *billing* project (to run the query)
+   - **BigQuery Data Viewer** on the *export dataset* (to read it)
+5. Paste the Project ID and the full JSON key into Fenrix. If you configured billing export, add the
+   billing project (defaults to Project ID), dataset, and table name.
+
+Notes: choose the **detailed** export table (`gcp_billing_export_resource_v1_*`) for per-resource
+cost attribution; the **standard** table (`gcp_billing_export_v1_*`) gives service-level costs only.
+Fenrix auto-detects which you provided. If you skip the billing export, discovery still works —
+there's just no cost data to show.
+
+---
+
 ## Git (Windows PowerShell notes)
 
 Windows PowerShell 5.1 doesn't support `&&`, and blocks unsigned `.ps1` files by default.
@@ -80,13 +160,13 @@ Paste these blocks directly into PowerShell.
 First push:
 
 ```powershell
-cd C:\Users\Ivo\Documents\Claude\Projects\FenrixCloudBudget
+cd <path-to>\FenrixCloudBudget   # e.g. C:\Users\<you>\Documents\FenrixCloudBudget
 if (Test-Path .git) { Remove-Item -Recurse -Force .git }
 git init -b main
-git config user.name "Ivo"
-git config user.email "ivogeorgievdev@gmail.com"
+git config user.name "<your-name>"
+git config user.email "<your-email>"
 git config core.autocrlf true
-git remote add origin https://github.com/IvayloDGeorgiev/FenrixCloudBudget.git
+git remote add origin https://github.com/<your-org>/FenrixCloudBudget.git
 git add .
 git commit -m "Initial commit"
 git push -u origin main
@@ -95,7 +175,7 @@ git push -u origin main
 After each phase:
 
 ```powershell
-cd C:\Users\Ivo\Documents\Claude\Projects\FenrixCloudBudget
+cd <path-to>\FenrixCloudBudget   # e.g. C:\Users\<you>\Documents\FenrixCloudBudget
 git add .
 git commit -m "Phase X: <summary>"
 git push
@@ -122,13 +202,13 @@ git push
 
 ## What works now vs. later
 
-| Area | Now (Phase 1–2) | Later |
+| Area | Now | Later |
 |---|---|---|
-| Clients, Projects, Services, Budgets | ✅ manual CRUD | — |
-| Dashboard | ✅ from manual data + filters | synced cost time-series (Phase 4) |
-| Reminders | ✅ manual + lead-times + snooze/done + link to connected account | auto-detect expiry (Phase 4) |
-| Notifications | ✅ in-app + device | email once a method is configured; server email (Phase 5) |
-| Cloud connectors | ✅ connect accounts + discover resources + group into projects | cost sync (Phase 4) |
-| Auth / multi-user | local single-user | OTP + invites + B2C (Phase 5) |
-| Ads / Pro | ad slot placeholder | AdMob + Play Billing (Phase 2/6) |
+| Clients, Projects, Services, Budgets | ✅ manual CRUD (editable/removable manual services, per-project budgets) | — |
+| Dashboard | ✅ synced cost time-series + filters + budget "radar" (pacing, forecast, movers, composition, cost map, anomalies) | per-project detail view |
+| Cloud connectors | ✅ connect + discover + group into projects + **cost sync (AWS/Azure/GCP)** | live-account validation against real billing |
+| Reminders | ✅ manual + lead-times + snooze/done + link to connected account | auto-detect secret/cert expiry |
+| Notifications | ✅ in-app + device + server email (via API) | configure email adapter SDKs (SES/ACS) |
+| Auth / multi-user | ✅ JWT login + OTP/invites + admin Users workspace | invited-member OTP screens; SaaS push sync; optional B2C |
+| Ads / Pro | ad slot placeholder | AdMob + UMP consent; Play Billing; PDF/CSV export |
 ```

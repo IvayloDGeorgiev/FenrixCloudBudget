@@ -68,7 +68,7 @@ Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 ## Phase 2 — Polish, theming, Play Store
 - ✅ 2026 visual redesign: atmospheric responsive shell, animated/reduced-motion-aware surfaces, redesigned home/dashboard, and 4 full visual personalities (Daybreak, Nebula, Graphite, Tide) with matching MudBlazor palettes and live Appearance previews.
 - ✅ Settings → Appearance persists the selected personality immediately; legacy theme IDs migrate automatically. Settings → Data & Connections (mode + interval); Settings → Email & Notifications (dynamic per-method fields, test button).
-- 🟡 Email secret persistence via `ISecretStore` from Settings UI — non-secret fields save; **wire secret save/mask round-trip**.
+- ✅ Email secret persistence via `ISecretStore` from Settings UI: a newly entered secret (Resend/SendGrid/Postmark API key, SMTP password, etc.) is encrypted and its reference + masked hint stored on `EmailConfig`; non-secret schema fields are persisted generically; the saved hint shows as the field placeholder and a blank entry keeps the existing key. "Send test email" now saves first so the adapter reads the just-entered key (previously the key was dropped on save, so providers returned 401 "API key is invalid").
 - 🟡 AdMob: CSS ad-slot placeholder only — **integrate Plugin.MauiMTAdmob + UMP consent**.
 - ⬜ Report export (PDF/CSV).
 - ⬜ Play Console: signing, privacy policy, data-safety, AAB upload.
@@ -100,9 +100,10 @@ Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 - ✅ Admin-only Users workspace: Users navigation is hidden from members; Administrators and Members have separate searchable sections; admins can promote/demote, enable/disable, invite, revoke invitations, and delete ordinary users.
 - ✅ Lockout protection: current/final active administrators cannot be disabled, demoted, or deleted. The seeded administrator keeps its Admin role, can be enabled/disabled by another active admin, and cannot be deleted or re-invited.
 - 🟡 SaaS data provider: authenticated credential-free server snapshot and local SQLite pull hydration are implemented. Push, conflict resolution, tenant ownership, and stable cross-device identifiers remain.
-- 🟡 Verification: the earlier Phase 5 API/auth/SaaS slice last passed 14 tests. A bootstrap-account test and the latest login/user UI changes have been added but intentionally not built or run yet; manual verification is requested.
-- ⬜ Hosted app sign-in UI for invited members (OTP request/verification), production password replacement/change flow, push sync, and optional B2C (Entra/Cognito).
-- **Next:** manually build and test Windows/API login and Users actions; then wire invited-member OTP screens and define tenant-scoped stable IDs before enabling SaaS push.
+- ✅ Invited-member OTP sign-in in the **local app**: `OtpService` was promoted from the API into shared `FenrixCloudBudget.Services.Auth` (registered in `AddFenrixServices`) so the desktop/mobile app reuses the same passwordless flow as the hosted API. The login screen now has a Password ↔ Email-code toggle: request a 6-digit code, verify it, and the session starts for that member. `AuthSessionService` gained `RequestSignInCodeAsync` + `LoginWithCodeAsync`. Neutral "if this address can sign in…" messaging so the UI never reveals which emails exist; code delivery uses whichever email adapter is configured in Settings.
+- 🟡 Verification: the earlier Phase 5 API/auth/SaaS slice last passed 14 tests. The OTP move keeps `Phase5AuthTests` valid (it already imports `Services.Auth`). The latest login/user UI + OTP changes have not been built/run here yet; manual build + test is requested.
+- ⬜ Remaining Phase 5: production password replacement/change flow, SaaS **push** sync (only pull is wired) with tenant-scoped stable IDs, and optional B2C (Entra/Cognito).
+- **Next:** manually build and test Windows/API login (password + email code) and Users actions; then define tenant-scoped stable IDs before enabling SaaS push.
 
 ## Phase 6 — Monetization & polish
 - ⬜ Remove-ads / Pro via Play Billing; iOS/macOS targets; anomaly detection; forecasts.

@@ -27,7 +27,7 @@ public sealed class ResendEmailSender : IEmailSender
     public IReadOnlyList<EmailFieldSpec> FieldSchema => new[]
     {
         new EmailFieldSpec("apiKey", "API key", IsSecret: true, Placeholder: "re_..."),
-        new EmailFieldSpec("fromAddress", "From address (verified domain)")
+        new EmailFieldSpec("fromAddress", "Send-from email (no-reply)", Placeholder: "no-reply@yourdomain.com")
     };
 
     public async Task<EmailResult> SendAsync(EmailMessage m, CancellationToken ct = default)
@@ -64,7 +64,7 @@ public sealed class SendGridEmailSender : IEmailSender
     public IReadOnlyList<EmailFieldSpec> FieldSchema => new[]
     {
         new EmailFieldSpec("apiKey", "API key", IsSecret: true, Placeholder: "SG..."),
-        new EmailFieldSpec("fromAddress", "From address")
+        new EmailFieldSpec("fromAddress", "Send-from email (no-reply)", Placeholder: "no-reply@yourdomain.com")
     };
 
     public async Task<EmailResult> SendAsync(EmailMessage m, CancellationToken ct = default)
@@ -102,7 +102,7 @@ public sealed class PostmarkEmailSender : IEmailSender
     public IReadOnlyList<EmailFieldSpec> FieldSchema => new[]
     {
         new EmailFieldSpec("serverToken", "Server token", IsSecret: true),
-        new EmailFieldSpec("fromAddress", "From address")
+        new EmailFieldSpec("fromAddress", "Send-from email (no-reply)", Placeholder: "no-reply@yourdomain.com")
     };
 
     public async Task<EmailResult> SendAsync(EmailMessage m, CancellationToken ct = default)

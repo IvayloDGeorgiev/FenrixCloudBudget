@@ -23,56 +23,206 @@
             <p>Sign in to continue to your multi-cloud financial workspace.</p>
         </div>
 
-        <MudTextField @bind-Value="_identifier"
-                      Label="Username or email"
-                      Placeholder="admin"
-                      Variant="Variant.Outlined"
-                      Immediate="true"
-                      Disabled="_busy"
-                      Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Person" />
-        <MudTextField @bind-Value="_password"
-                      Label="Password"
-                      Variant="Variant.Outlined"
-                      InputType="@(_showPassword ? InputType.Text : InputType.Password)"
-                      Immediate="true"
-                      Disabled="_busy"
-                      Adornment="Adornment.End"
-                      AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
-                      OnAdornmentClick="@(() => _showPassword = !_showPassword)"
-                      OnKeyDown="HandleKeyDown" />
-
-        @if (!string.IsNullOrWhiteSpace(_error))
+        @if (_loaded)
         {
-            <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Text">@_error</MudAlert>
+            @if (_passwordAvailable)
+            {
+                <div class="fx-login-modes" role="tablist" aria-label="Sign-in method">
+                    <button type="button"
+                            role="tab"
+                            class="@ModeClass(AuthMode.Password)"
+                            aria-selected="@(_mode == AuthMode.Password)"
+                            disabled="@_busy"
+                            @onclick="@(() => SetMode(AuthMode.Password))">
+                        <MudIcon Icon="@Icons.Material.Filled.Password" Size="Size.Small" />
+                        <span>Password</span>
+                    </button>
+                    <button type="button"
+                            role="tab"
+                            class="@ModeClass(AuthMode.Code)"
+                            aria-selected="@(_mode == AuthMode.Code)"
+                            disabled="@_busy"
+                            @onclick="@(() => SetMode(AuthMode.Code))">
+                        <MudIcon Icon="@Icons.Material.Filled.MarkEmailRead" Size="Size.Small" />
+                        <span>Email code</span>
+                    </button>
+                </div>
+            }
+
+            @if (_mode == AuthMode.Password)
+            {
+                <MudTextField @bind-Value="_identifier"
+                              Label="Username or email"
+                              Placeholder="admin"
+                              Variant="Variant.Outlined"
+                              Immediate="true"
+                              Disabled="_busy"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Person" />
+                <MudTextField @bind-Value="_password"
+                              Label="Password"
+                              Variant="Variant.Outlined"
+                              InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                              Immediate="true"
+                              Disabled="_busy"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                              OnAdornmentClick="@(() => _showPassword = !_showPassword)"
+                              OnKeyDown="HandlePasswordKeyDown" />
+            }
+            else
+            {
+                <MudTextField @bind-Value="_email"
+                              Label="Email address"
+                              Placeholder="you@company.com"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Email"
+                              Immediate="true"
+                              Disabled="@(_busy || _codeSent)"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.AlternateEmail"
+                              OnKeyDown="HandleEmailKeyDown" />
+
+                @if (_codeSent)
+                {
+                    <MudTextField @bind-Value="_code"
+                                  Label="6-digit code"
+                                  Placeholder="••••••"
+                                  Variant="Variant.Outlined"
+                                  Immediate="true"
+                                  Disabled="_busy"
+                                  MaxLength="6"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Pin"
+                                  OnKeyDown="HandleCodeKeyDown" />
+                }
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_info))
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Text">@_info</MudAlert>
+            }
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Text">@_error</MudAlert>
+            }
+
+            @if (_mode == AuthMode.Password)
+            {
+                <MudButton FullWidth="true"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Large"
+                           StartIcon="@Icons.Material.Filled.Login"
+                           Disabled="_busy"
+                           OnClick="LoginAsync">
+                    @(_busy ? "Signing in…" : "Sign in")
+                </MudButton>
+
+                <div class="fx-bootstrap-note">
+                    <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Size="Size.Small" />
+                    <span>
+                        <strong>Bootstrap administrator</strong>
+                        Username <code>admin</code> · Password <code>123456</code>
+                    </span>
+                </div>
+            }
+            else if (!_codeSent)
+            {
+                <MudButton FullWidth="true"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Large"
+                           StartIcon="@Icons.Material.Filled.Send"
+                           Disabled="_busy"
+                           OnClick="SendCodeAsync">
+                    @(_busy ? "Sending…" : "Send sign-in code")
+                </MudButton>
+
+                <div class="fx-bootstrap-note">
+                    <MudIcon Icon="@Icons.Material.Filled.MailOutline" Size="Size.Small" />
+                    <span>
+                        <strong>Invited members</strong>
+                        We'll email a 6-digit code that's valid for 10 minutes. Requires an email
+                        sender configured in Settings.
+                    </span>
+                </div>
+            }
+            else
+            {
+                <MudButton FullWidth="true"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Large"
+                           StartIcon="@Icons.Material.Filled.Login"
+                           Disabled="_busy"
+                           OnClick="VerifyAsync">
+                    @(_busy ? "Verifying…" : "Verify & sign in")
+                </MudButton>
+
+                <div class="fx-login-secondary">
+                    <MudButton Variant="Variant.Text"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               Disabled="_busy"
+                               OnClick="SendCodeAsync">
+                        Resend code
+                    </MudButton>
+                    <MudButton Variant="Variant.Text"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Edit"
+                               Disabled="_busy"
+                               OnClick="UseDifferentEmail">
+                        Use a different email
+                    </MudButton>
+                </div>
+            }
         }
-
-        <MudButton FullWidth="true"
-                   Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   Size="Size.Large"
-                   StartIcon="@Icons.Material.Filled.Login"
-                   Disabled="_busy"
-                   OnClick="LoginAsync">
-            @(_busy ? "Signing in…" : "Sign in")
-        </MudButton>
-
-        <div class="fx-bootstrap-note">
-            <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Size="Size.Small" />
-            <span>
-                <strong>Bootstrap administrator</strong>
-                Username <code>admin</code> · Password <code>123456</code>
-            </span>
-        </div>
     </section>
 </div>
 
 @code {
+    private enum AuthMode { Password, Code }
+
+    private AuthMode _mode = AuthMode.Password;
+    private bool _passwordAvailable = true;
+    private bool _loaded;
+
+    // Password path
     private string _identifier = "admin";
     private string _password = "";
-    private string? _error;
     private bool _showPassword;
+
+    // Email-code path
+    private string _email = "";
+    private string _code = "";
+    private bool _codeSent;
+
+    private string? _error;
+    private string? _info;
     private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // The password path only signs in the seeded admin; hide it (and the bootstrap hint)
+        // when that account is disabled, and default to email-code sign-in.
+        _passwordAvailable = await Auth.IsPasswordSignInAvailableAsync();
+        if (!_passwordAvailable)
+            _mode = AuthMode.Code;
+        _loaded = true;
+    }
+
+    private string ModeClass(AuthMode mode)
+        => mode == _mode ? "fx-login-mode is-active" : "fx-login-mode";
+
+    private void SetMode(AuthMode mode)
+    {
+        if (_busy || mode == _mode)
+            return;
+        _mode = mode;
+        _error = null;
+        _info = null;
+    }
 
     private async Task LoginAsync()
     {
@@ -80,6 +230,7 @@
             return;
 
         _error = null;
+        _info = null;
         _busy = true;
         try
         {
@@ -93,9 +244,84 @@
         }
     }
 
-    private async Task HandleKeyDown(KeyboardEventArgs args)
+    private async Task SendCodeAsync()
+    {
+        if (_busy)
+            return;
+        if (string.IsNullOrWhiteSpace(_email) || !_email.Contains('@'))
+        {
+            _error = "Enter a valid email address.";
+            return;
+        }
+
+        _error = null;
+        _info = null;
+        _busy = true;
+        try
+        {
+            await Auth.RequestSignInCodeAsync(_email);
+            // Always show the same neutral confirmation so we never reveal which addresses exist.
+            _codeSent = true;
+            _code = "";
+            _info = $"If {_email.Trim()} can sign in, a 6-digit code is on its way. It expires in 10 minutes.";
+        }
+        catch
+        {
+            _error = "We couldn't send the code. Check the email sender configured in Settings.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task VerifyAsync()
+    {
+        if (_busy)
+            return;
+        if (string.IsNullOrWhiteSpace(_code))
+        {
+            _error = "Enter the 6-digit code from your email.";
+            return;
+        }
+
+        _error = null;
+        _busy = true;
+        try
+        {
+            var result = await Auth.LoginWithCodeAsync(_email, _code);
+            if (!result.Success)
+                _error = result.Error ?? "That code didn't work.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void UseDifferentEmail()
+    {
+        _codeSent = false;
+        _code = "";
+        _error = null;
+        _info = null;
+    }
+
+    private async Task HandlePasswordKeyDown(KeyboardEventArgs args)
     {
         if (args.Key == "Enter")
             await LoginAsync();
+    }
+
+    private async Task HandleEmailKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && !_codeSent)
+            await SendCodeAsync();
+    }
+
+    private async Task HandleCodeKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+            await VerifyAsync();
     }
 }

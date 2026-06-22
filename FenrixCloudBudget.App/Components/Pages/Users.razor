@@ -67,6 +67,7 @@ else
                         <UserManagementRow User="user"
                                            IsCurrentUser="@IsCurrentUser(user)"
                                            IsSeededUser="@IsSeededUser(user)"
+                                           CanToggleStatus="@CanToggleStatus(user)"
                                            RoleChanged="role => ChangeRoleAsync(user, role)"
                                            StatusToggle="@(() => ToggleStatusAsync(user))"
                                            DeleteRequested="@(() => RequestDelete(user))" />
@@ -105,6 +106,7 @@ else
                         <UserManagementRow User="user"
                                            IsCurrentUser="@IsCurrentUser(user)"
                                            IsSeededUser="@IsSeededUser(user)"
+                                           CanToggleStatus="@CanToggleStatus(user)"
                                            RoleChanged="role => ChangeRoleAsync(user, role)"
                                            StatusToggle="@(() => ToggleStatusAsync(user))"
                                            DeleteRequested="@(() => RequestDelete(user))" />
@@ -414,6 +416,23 @@ else
             user.Id != excludingUserId
             && user.Role == UserRole.Admin
             && user.Status == UserStatus.Active);
+
+    // Disabling is blocked in the UI when it would leave the workspace without an active admin —
+    // e.g. the seeded admin cannot be disabled until another admin account is set up (active).
+    // Enabling a disabled account is always allowed.
+    private bool CanToggleStatus(User user)
+    {
+        if (IsCurrentUser(user))
+            return false;
+        if (user.Status == UserStatus.Disabled)
+            return true;
+        if (user.Role == UserRole.Admin)
+            return _users.Any(other =>
+                other.Id != user.Id
+                && other.Role == UserRole.Admin
+                && other.Status == UserStatus.Active);
+        return true;
+    }
 
     private bool IsCurrentUser(User user) => Auth.CurrentUser?.Id == user.Id;
     private static bool IsSeededUser(User user)

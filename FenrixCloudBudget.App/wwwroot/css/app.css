@@ -2772,6 +2772,56 @@ button,
     background: var(--fx-surface-solid);
 }
 
+/* Sign-in method segmented toggle (Password vs Email code). */
+.fx-login-modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--fx-border);
+    border-radius: 999px;
+    background: var(--fx-surface-2);
+}
+
+.fx-login-mode {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 12px;
+    border: 0;
+    border-radius: 999px;
+    color: var(--fx-text-muted);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 660;
+    cursor: pointer;
+    background: transparent;
+    transition: color .2s ease, background .25s ease, box-shadow .25s ease;
+}
+
+.fx-login-mode:hover:not(.is-active):not(:disabled) {
+    color: var(--fx-text);
+}
+
+.fx-login-mode:disabled {
+    cursor: default;
+}
+
+.fx-login-mode.is-active {
+    color: var(--fx-primary-contrast);
+    background: var(--fx-gradient);
+    box-shadow: 0 8px 20px rgba(var(--fx-primary-rgb), .22);
+}
+
+.fx-login-secondary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
 /* ---- User administration ---- */
 .fx-user-sections {
     display: grid;

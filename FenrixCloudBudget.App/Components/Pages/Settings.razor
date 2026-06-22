@@ -2,6 +2,7 @@
 @inject ThemeService Theme
 @inject IDbContextFactory<AppDbContext> DbFactory
 @inject IEmailSenderFactory EmailFactory
+@inject ISecretStore Secrets
 @inject FenrixCloudBudget.Data.TestData.TestDataState TestData
 @inject FenrixCloudBudget.Data.TestData.RoutingDbContextFactory TestRouting
 @inject ISnackbar Snackbar
@@ -136,7 +137,7 @@
             }
         </MudTabPanel>
 
-        <MudTabPanel Text="Notifications" Icon="@Icons.Material.Filled.MarkEmailRead">
+        <MudTabPanel Text="Emails & Notifications" Icon="@Icons.Material.Filled.MarkEmailRead">
             <div class="fx-appearance-intro">
                 <div>
                     <h3>Email & notifications</h3>
@@ -174,7 +175,8 @@
                                 <MudTextField T="string"
                                               Label="@(field.Label + (field.Required ? " *" : ""))"
                                               InputType="@(field.IsSecret ? InputType.Password : InputType.Text)"
-                                              HelperText="@(field.IsSecret ? "Encrypted at rest; masked after save." : null)"
+                                              Placeholder="@FieldPlaceholder(field)"
+                                          HelperText="@FieldHelp(field)"
                                               Value="@GetField(field.Key)"
                                               ValueChanged="value => SetField(field.Key, value)" />
                             }
@@ -219,6 +221,18 @@
         _settings.ThemeId = ThemeService.ResolveThemeId(_settings.ThemeId);
         Theme.SetTheme(_settings.ThemeId);
         _email = await db.EmailConfigs.FirstOrDefaultAsync() ?? new EmailConfig();
+
+        // Prefill the non-secret fields so returning to Settings shows what's saved. Secret
+        // fields stay blank (they're never round-tripped); the saved hint is shown as a placeholder.
+        if (!string.IsNullOrWhiteSpace(_email.OptionsJson))
+        {
+            var saved = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(_email.OptionsJson);
+            if (saved is not null)
+                foreach (var kv in saved)
+                    _fields[kv.Key] = kv.Value;
+        }
+        if (!string.IsNullOrWhiteSpace(_email.FromAddress))
+            _fields["fromAddress"] = _email.FromAddress;
     }
 
     private async Task OnTestDataChanged(bool value)
@@ -281,15 +295,71 @@
     private void TestConnection() =>
         _testResult = "The desktop host validates the live provider when these settings are saved.";
 
-    private async Task SaveEmail()
+    private string? FieldPlaceholder(EmailFieldSpec field)
+        => field.IsSecret && !string.IsNullOrWhiteSpace(_email?.SecretHint)
+            ? _email!.SecretHint
+            : field.Placeholder;
+
+    private string? FieldHelp(EmailFieldSpec field)
+    {
+        if (!field.IsSecret)
+            return null;
+        return !string.IsNullOrWhiteSpace(_email?.SecretHint)
+            ? "Encrypted at rest. Leave blank to keep the saved key."
+            : "Encrypted at rest; masked after save.";
+    }
+
+    /// <summary>
+    /// Persist the email config, encrypting any newly entered secret via the secret store and
+    /// storing all non-secret schema fields. Returns false if a required value is missing.
+    /// </summary>
+    private async Task<bool> PersistEmailAsync()
     {
         if (_email is null)
-            return;
+            return false;
 
+        var schema = EmailFactory.Resolve(_email.Method).FieldSchema;
+        var nonSecretKeys = schema.Where(f => !f.IsSecret).Select(f => f.Key).ToHashSet();
+
+        // Store every non-secret field the active method declares (fromAddress, host, region, …).
         _email.OptionsJson = System.Text.Json.JsonSerializer.Serialize(
-            _fields.Where(field => field.Key is "fromAddress" or "host" or "port" or "region" or "encryption" or "username")
-                .ToDictionary(field => field.Key, field => field.Value));
+            _fields.Where(kv => nonSecretKeys.Contains(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
+                   .ToDictionary(kv => kv.Key, kv => kv.Value));
         _email.FromAddress = _fields.GetValueOrDefault("fromAddress");
+
+        // A bare domain (e.g. "yourdomain.com") is rejected by every provider — require a full
+        // mailbox address. The mailbox need not exist; the domain just has to be verified.
+        if (schema.Any(f => f.Key == "fromAddress")
+            && (string.IsNullOrWhiteSpace(_email.FromAddress)
+                || !System.Net.Mail.MailAddress.TryCreate(_email.FromAddress, out _)))
+        {
+            Snackbar.Add("Enter a full From address like no-reply@yourdomain.com (a bare domain won't work).", Severity.Warning);
+            return false;
+        }
+
+        // Secret round-trip: encrypt a newly entered secret; if left blank, keep the saved one.
+        var secretField = schema.FirstOrDefault(f => f.IsSecret);
+        if (secretField is null)
+        {
+            _email.CredentialReference = null;
+            _email.SecretHint = null;
+        }
+        else
+        {
+            var entered = _fields.GetValueOrDefault(secretField.Key);
+            if (!string.IsNullOrWhiteSpace(entered))
+            {
+                var handle = await Secrets.SaveAsync(entered.Trim());
+                _email.CredentialReference = handle.Reference;
+                _email.SecretHint = handle.Hint;
+            }
+            else if (string.IsNullOrWhiteSpace(_email.CredentialReference))
+            {
+                Snackbar.Add($"Enter the {secretField.Label.ToLowerInvariant()} before saving.", Severity.Warning);
+                return false;
+            }
+        }
+
         _email.Enabled = _email.Method != EmailMethod.InAppAndDeviceOnly;
 
         await using var db = await DbFactory.CreateDbContextAsync();
@@ -298,7 +368,13 @@
         else
             db.EmailConfigs.Update(_email);
         await db.SaveChangesAsync();
-        Snackbar.Add("Notification settings saved", Severity.Success);
+        return true;
+    }
+
+    private async Task SaveEmail()
+    {
+        if (await PersistEmailAsync())
+            Snackbar.Add("Notification settings saved", Severity.Success);
     }
 
     private async Task SendTest()
@@ -306,9 +382,18 @@
         if (_email is null)
             return;
 
+        // Save first so the adapter reads the just-entered key from secure storage.
+        if (!await PersistEmailAsync())
+            return;
+
         var result = await EmailFactory.Resolve(_email.Method)
             .SendTestAsync(_email.FromAddress ?? "test@example.com");
         _email.Status = result.Success ? EmailConfigStatus.Verified : EmailConfigStatus.Failed;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.EmailConfigs.Update(_email);
+        await db.SaveChangesAsync();
+
         Snackbar.Add(
             result.Success ? "Test sent" : $"Failed: {result.Error}",
             result.Success ? Severity.Success : Severity.Error);

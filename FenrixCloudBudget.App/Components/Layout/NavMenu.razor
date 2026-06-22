@@ -54,11 +54,12 @@
 
     <div class="fx-nav-spacer"></div>
 
-    <a class="fx-nav-insight" href="/dashboard">
+    <a class="fx-nav-insight" href="https://fenrixsource.com" rel="noopener noreferrer"
+       @onclick="OpenFenrixSource" @onclick:preventDefault="true">
         <span class="fx-insight-icon"><MudIcon Icon="@Icons.Material.Filled.AutoGraph" /></span>
         <span>
-            <strong>Cost intelligence</strong>
-            <small>Live sync is ready</small>
+            <strong>Fenrix Source_</strong>
+            <small>fenrixsource.com</small>
         </span>
         <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" />
     </a>
@@ -79,4 +80,8 @@
     protected override void OnInitialized() => Auth.Changed += OnAuthChanged;
     private void OnAuthChanged() => InvokeAsync(StateHasChanged);
     public void Dispose() => Auth.Changed -= OnAuthChanged;
+
+    // Open the marketing site in the system browser instead of navigating the app's WebView.
+    private Task OpenFenrixSource()
+        => Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync("https://fenrixsource.com");
 }

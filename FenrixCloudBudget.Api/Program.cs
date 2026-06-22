@@ -20,9 +20,8 @@ builder.Services.AddFenrixData(new DataProviderOptions
     ConnectionString = conn
 });
 
-// ---- Shared services (email/notifications) + server OTP ----
+// ---- Shared services (email/notifications + passwordless OTP, now shared with the app) ----
 builder.Services.AddFenrixServices();
-builder.Services.AddScoped<OtpService>();
 
 // ---- Cross-cutting ----
 builder.Services.AddEndpointsApiExplorer();

@@ -36,9 +36,9 @@
 
         <MudIconButton Icon="@(User.Status == UserStatus.Disabled ? Icons.Material.Filled.ToggleOff : Icons.Material.Filled.ToggleOn)"
                        Color="@(User.Status == UserStatus.Disabled ? Color.Default : Color.Success)"
-                       Disabled="@IsCurrentUser"
-                       title="@(User.Status == UserStatus.Disabled ? "Enable user" : "Disable user")"
-                       aria-label="@(User.Status == UserStatus.Disabled ? "Enable user" : "Disable user")"
+                       Disabled="@(IsCurrentUser || !CanToggleStatus)"
+                       title="@ToggleTitle()"
+                       aria-label="@ToggleTitle()"
                        OnClick="@(() => StatusToggle.InvokeAsync())" />
         <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
                        Color="Color.Error"
@@ -53,9 +53,20 @@
     [Parameter, EditorRequired] public User User { get; set; } = null!;
     [Parameter] public bool IsCurrentUser { get; set; }
     [Parameter] public bool IsSeededUser { get; set; }
+    /// <summary>False when disabling this account would leave the workspace with no active admin.</summary>
+    [Parameter] public bool CanToggleStatus { get; set; } = true;
     [Parameter] public EventCallback<UserRole> RoleChanged { get; set; }
     [Parameter] public EventCallback StatusToggle { get; set; }
     [Parameter] public EventCallback DeleteRequested { get; set; }
+
+    private string ToggleTitle()
+    {
+        if (IsCurrentUser)
+            return "You cannot disable your current session";
+        if (!CanToggleStatus)
+            return "Set up another active administrator before disabling this account";
+        return User.Status == UserStatus.Disabled ? "Enable user" : "Disable user";
+    }
 
     private static string Initials(User user)
     {

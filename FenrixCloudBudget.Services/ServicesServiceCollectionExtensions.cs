@@ -47,6 +47,7 @@ public static class ServicesServiceCollectionExtensions
         // Sync / evaluation.
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<LocalPasswordAuthenticationService>();
+        services.AddScoped<OtpService>();
         services.AddScoped<UserInvitationService>();
         services.AddScoped<BudgetEvaluator>();
         services.AddScoped<ReminderEvaluator>();
