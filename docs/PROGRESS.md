@@ -5,7 +5,7 @@
 > The full design rationale lives in `IMPLEMENTATION_PLAN.md`.
 
 **Last updated:** 2026-06-22
-**Current focus:** finishing Phase 1–2 scaffold; ready for first `dotnet ef migrations add` + build.
+**Current focus:** Phase 3 (cloud connect + discovery) implemented. Needs a new EF migration for `CloudAccount.OptionsJson`, then build.
 
 Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 
@@ -34,12 +34,14 @@ Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 - **Next:** AdMob init + consent; secret round-trip in Settings; PDF/CSV export.
 
 ## Phase 3 — Cloud connections & resource discovery
-- ✅ `ICloudConnector` + AWS/Azure/GCP implementations (discovery + cost) written behind the interface.
-- ✅ Secure credential storage (AES + masked hint).
-- 🟡 Cloud Services page is read-only/info — **add connect flow (enter creds → AuthenticateAsync → list scopes)**.
-- ⬜ "Choose existing resources" multi-select into a Project.
-- ⬜ Auto-fill reminder expiry from app-registration secrets/certs.
-- **Next:** build the connect-account dialog + discovery UI; map discovered resources to services.
+- ✅ `ICloudConnector` + AWS/Azure/GCP implementations (discovery + cost) behind the interface, each with a `CredentialSchema`.
+- ✅ Secure credential storage (AES + masked hint); non-secret fields persisted as `CloudAccount.OptionsJson` for re-auth.
+- ✅ `CloudConnectionService` orchestrates connect / re-authenticate / discover (covered by `CloudConnectionServiceTests`).
+- ✅ Cloud Services page: connect-account dialog (dynamic per-provider fields) + per-account "Discover resources".
+- ✅ "Choose existing resources" in Projects: pick account → discover → multi-select → added as connected Services.
+- 🟡 Reminders can be **linked** to a connected account (picker added); **auto-detecting the secret/cert expiry date is still TODO** (needs the cost/metadata sync in Phase 4).
+- **Next (Phase 4):** implement Azure cost query + `CostSyncService`; auto-fill reminder expiry from app-registration metadata.
+- **Migration needed:** `dotnet ef migrations add AddCloudAccountOptions` (or regenerate `InitialCreate` if not yet created) for the new `OptionsJson` column.
 
 ## Phase 4 — Cost sync & live dashboards
 - 🟡 `GetCostsAsync` implemented for AWS + GCP; **Azure cost query is a TODO stub** (needs the /query POST + token + 429 back-off).

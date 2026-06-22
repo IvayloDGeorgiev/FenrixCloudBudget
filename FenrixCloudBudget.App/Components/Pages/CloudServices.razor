@@ -1,15 +1,17 @@
 @page "/cloud-services"
 @inject IDbContextFactory<AppDbContext> DbFactory
+@inject CloudConnectionService Connections
+@inject ISnackbar Snackbar
 
-<h1 class="fx-page-title">Cloud Services</h1>
-<p class="fx-page-sub">Connect AWS, Azure & GCP accounts, discover resources, and map them to projects.</p>
-
-<div class="fx-card" style="margin-bottom:16px">
-    <MudAlert Severity="Severity.Info" Dense="true">
-        Live connections, resource discovery and cost sync arrive in <strong>Phases 3–4</strong>.
-        The connector layer (AWS Cost Explorer + Resource Groups Tagging, Azure Resource Graph + Cost Management,
-        GCP Cloud Asset Inventory + BigQuery billing export) is already built behind <code>ICloudConnector</code>.
-    </MudAlert>
+<div style="display:flex;align-items:center;gap:12px">
+    <div>
+        <h1 class="fx-page-title">Cloud Services</h1>
+        <p class="fx-page-sub">Connect AWS, Azure & GCP accounts, discover resources, and map them to projects.</p>
+    </div>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AddLink" OnClick="OpenConnect">
+        Connect account
+    </MudButton>
 </div>
 
 <div class="fx-tiles">
@@ -19,18 +21,158 @@
             <span class="fx-chip @a.Provider.ToString().ToLower()">@a.Provider</span>
             <div class="fx-tile-title">@a.DisplayName</div>
             <div style="font-size:12px;color:var(--fx-text-muted)">@a.AccountOrSubscriptionId</div>
+            <div style="font-size:12px">Key: @(a.SecretHint ?? "—")</div>
             <div style="font-size:12px">@(a.LastSyncedUtc is null ? "Never synced" : $"Synced {a.LastSyncedUtc:yyyy-MM-dd}")</div>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Search"
+                       OnClick="@(() => DiscoverAsync(a))">Discover resources</MudButton>
         </div>
     }
     @if (_accounts.Count == 0) { <Empty Text="No cloud accounts connected yet." /> }
 </div>
 
+@if (_discovered is not null)
+{
+    <div class="fx-card" style="margin-top:16px">
+        <h3>Discovered resources — @_discoveredAccount?.DisplayName (@_discovered.Count)</h3>
+        @if (_discovered.Count == 0)
+        {
+            <Empty Text="No resources returned for this account/scope." />
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true" Style="max-height:360px;overflow:auto">
+                <thead><tr><th>Name</th><th>Type</th><th>Region</th><th>Resource group</th></tr></thead>
+                <tbody>
+                    @foreach (var r in _discovered)
+                    {
+                        <tr>
+                            <td>@r.Name</td>
+                            <td>@r.ResourceType</td>
+                            <td>@r.Region</td>
+                            <td>@r.ResourceGroup</td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+            <MudText Typo="Typo.caption" Class="mt-2">
+                Add these to a project from <strong>Projects → open a project → Choose existing resources</strong>.
+            </MudText>
+        }
+    </div>
+}
+
+<MudDialog @bind-Visible="_connectOpen" Options="new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true }">
+    <TitleContent>Connect cloud account</TitleContent>
+    <DialogContent>
+        <MudSelect T="CloudProvider" @bind-Value="_provider" Label="Provider" @bind-Value:after="OnProviderChanged">
+            <MudSelectItem Value="CloudProvider.Aws">AWS</MudSelectItem>
+            <MudSelectItem Value="CloudProvider.Azure">Azure</MudSelectItem>
+            <MudSelectItem Value="CloudProvider.Gcp">GCP</MudSelectItem>
+        </MudSelect>
+        <MudTextField @bind-Value="_displayName" Label="Display name" Placeholder="e.g. Acme production" />
+
+        @foreach (var f in _schema)
+        {
+            <MudTextField T="string" Label="@(f.Label + (f.Required ? " *" : ""))"
+                          InputType="@(f.IsSecret ? InputType.Password : InputType.Text)"
+                          Placeholder="@f.Placeholder"
+                          HelperText="@(f.IsSecret ? "Stored encrypted; shown masked after save." : null)"
+                          Value="@GetField(f.Key)" ValueChanged="v => SetField(f.Key, v)" />
+        }
+
+        <MudText Typo="Typo.caption" Class="mt-2">
+            Least-privilege roles: AWS <code>ce:GetCostAndUsage</code> + <code>tag:GetResources</code>;
+            Azure "Cost Management Reader"; GCP Billing Account Viewer + BigQuery roles.
+        </MudText>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _connectOpen = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ConnectAsync" Disabled="_busy">
+            @(_busy ? "Connecting…" : "Connect & validate")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     private List<CloudAccount> _accounts = new();
+    private bool _connectOpen, _busy;
+    private CloudProvider _provider = CloudProvider.Aws;
+    private string _displayName = "";
+    private string? _error;
+    private IReadOnlyList<CloudFieldSpec> _schema = Array.Empty<CloudFieldSpec>();
+    private readonly Dictionary<string, string> _fields = new();
 
-    protected override async Task OnInitializedAsync()
+    private IReadOnlyList<DiscoveredResource>? _discovered;
+    private CloudAccount? _discoveredAccount;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        _accounts = await db.CloudAccounts.ToListAsync();
+        _accounts = await db.CloudAccounts.OrderBy(a => a.DisplayName).ToListAsync();
+    }
+
+    private void OpenConnect()
+    {
+        _error = null;
+        _displayName = "";
+        _fields.Clear();
+        _schema = Connections.SchemaFor(_provider);
+        _connectOpen = true;
+    }
+
+    private void OnProviderChanged()
+    {
+        _fields.Clear();
+        _schema = Connections.SchemaFor(_provider);
+    }
+
+    private string GetField(string key) => _fields.GetValueOrDefault(key, "");
+    private void SetField(string key, string val) => _fields[key] = val;
+
+    private async Task ConnectAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var result = await Connections.ConnectAsync(_provider, _displayName, _fields);
+            if (!result.Success)
+            {
+                _error = result.Error;
+                return;
+            }
+            _connectOpen = false;
+            Snackbar.Add("Account connected", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DiscoverAsync(CloudAccount a)
+    {
+        try
+        {
+            Snackbar.Add($"Discovering resources for {a.DisplayName}…", Severity.Info);
+            _discoveredAccount = a;
+            _discovered = await Connections.DiscoverAsync(a.Id);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Discovery failed: {ex.Message}", Severity.Error);
+        }
     }
 }

@@ -60,6 +60,17 @@
                 <MudSelectItem Value="ReminderType.Certificate">Certificate</MudSelectItem>
                 <MudSelectItem Value="ReminderType.Custom">Custom</MudSelectItem>
             </MudSelect>
+
+            @if (_editing.Type != ReminderType.Custom)
+            {
+                <MudSelect T="int?" @bind-Value="_editing.CloudAccountId" Label="Linked cloud account" Clearable="true">
+                    @foreach (var a in _accounts)
+                    {
+                        <MudSelectItem T="int?" Value="@a.Id">@a.DisplayName (@a.Provider)</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudText Typo="Typo.caption">Link a connected account so the expiry can be auto-detected (auto-fill arrives with cost sync).</MudText>
+            }
             <MudDatePicker Label="Due date" Date="_editing.DueDate.LocalDateTime" DateChanged="d => _editing.DueDate = d ?? DateTime.Now" />
             <MudTextField @bind-Value="_editing.LeadTimesDays" Label="Lead times (days, comma-separated)" />
             <MudTextField @bind-Value="_editing.Notes" Label="Notes" Lines="2" />
@@ -74,6 +85,7 @@
 
 @code {
     private List<Reminder> _reminders = new();
+    private List<CloudAccount> _accounts = new();
     private Reminder? _editing;
     private bool _dialogOpen;
 
@@ -83,6 +95,7 @@
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         _reminders = await db.Reminders.ToListAsync();
+        _accounts = await db.CloudAccounts.OrderBy(a => a.DisplayName).ToListAsync();
     }
 
     private static string Pretty(ReminderType t) => t switch

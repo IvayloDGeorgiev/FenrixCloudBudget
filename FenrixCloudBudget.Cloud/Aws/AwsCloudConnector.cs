@@ -28,6 +28,13 @@ public sealed class AwsCloudConnector : ICloudConnector
 
     public CloudProvider Provider => CloudProvider.Aws;
 
+    public IReadOnlyList<CloudFieldSpec> CredentialSchema => new[]
+    {
+        new CloudFieldSpec("accessKeyId", "Access key ID", Placeholder: "AKIA..."),
+        new CloudFieldSpec("secretAccessKey", "Secret access key", IsSecret: true),
+        new CloudFieldSpec("region", "Region", Required: false, Placeholder: "us-east-1")
+    };
+
     public AwsCloudConnector(ISecretStore secrets, ILogger<AwsCloudConnector> log)
     {
         _secrets = secrets;

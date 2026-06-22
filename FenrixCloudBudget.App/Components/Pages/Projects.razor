@@ -1,5 +1,6 @@
 @page "/projects"
 @inject IDbContextFactory<AppDbContext> DbFactory
+@inject CloudConnectionService Connections
 @inject ISnackbar Snackbar
 
 <div style="display:flex;align-items:center;gap:12px">
@@ -77,6 +78,39 @@
                 <MudNumericField @bind-Value="_newService.EstimatedCost" Label="Est./mo" Style="width:110px" />
                 <MudButton OnClick="AddService">Add</MudButton>
             </div>
+
+            <MudDivider Class="my-3" />
+            <MudText Typo="Typo.subtitle2">Choose existing resources</MudText>
+            <MudText Typo="Typo.caption" Class="mb-2">Import resources from a connected cloud account (cross-account grouping).</MudText>
+            <div style="display:flex;gap:8px;align-items:end">
+                <MudSelect T="int?" @bind-Value="_discoverAccountId" Label="Connected account" Style="flex:1">
+                    @foreach (var a in _accounts)
+                    {
+                        <MudSelectItem T="int?" Value="@a.Id">@a.DisplayName (@a.Provider)</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudButton StartIcon="@Icons.Material.Filled.Search" OnClick="DiscoverAsync" Disabled="_discovering">
+                    @(_discovering ? "…" : "Discover")
+                </MudButton>
+            </div>
+
+            @if (_discovered is not null)
+            {
+                <div style="max-height:220px;overflow:auto;margin-top:8px">
+                    @foreach (var r in _discovered)
+                    {
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <MudCheckBox T="bool" Value="@_selected.Contains(r.ExternalId)"
+                                         ValueChanged="@(v => Toggle(r.ExternalId, v))" Dense="true" />
+                            <span class="fx-chip @r.Provider.ToString().ToLower()">@r.Provider</span>
+                            <span style="flex:1">@r.Name</span>
+                            <span style="font-size:12px;color:var(--fx-text-muted)">@r.ResourceType</span>
+                        </div>
+                    }
+                </div>
+                <MudButton Variant="Variant.Outlined" Class="mt-2" OnClick="AddSelectedResources"
+                           Disabled="_selected.Count == 0">Add @_selected.Count selected</MudButton>
+            }
         </DialogContent>
         <DialogActions>
             <MudButton OnClick="@(() => _dialogOpen = false)">Cancel</MudButton>
@@ -90,9 +124,16 @@
 
     private List<Project> _projects = new();
     private List<Client> _clients = new();
+    private List<CloudAccount> _accounts = new();
     private Project? _editing;
     private Service _newService = new();
     private bool _dialogOpen;
+
+    // "Choose existing resources" state
+    private int? _discoverAccountId;
+    private bool _discovering;
+    private IReadOnlyList<DiscoveredResource>? _discovered;
+    private readonly HashSet<string> _selected = new();
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -101,13 +142,62 @@
         await using var db = await DbFactory.CreateDbContextAsync();
         _projects = await db.Projects.Include(p => p.Client).Include(p => p.Services).OrderBy(p => p.Name).ToListAsync();
         _clients = await db.Clients.OrderBy(c => c.Name).ToListAsync();
+        _accounts = await db.CloudAccounts.OrderBy(a => a.DisplayName).ToListAsync();
     }
 
     private void Edit(Project p)
     {
         _editing = p;
         _newService = new Service();
+        _discovered = null;
+        _selected.Clear();
+        _discoverAccountId = _accounts.FirstOrDefault()?.Id;
         _dialogOpen = true;
+    }
+
+    private void Toggle(string id, bool on)
+    {
+        if (on) _selected.Add(id); else _selected.Remove(id);
+    }
+
+    private async Task DiscoverAsync()
+    {
+        if (_discoverAccountId is null) return;
+        _discovering = true;
+        _selected.Clear();
+        try
+        {
+            _discovered = await Connections.DiscoverAsync(_discoverAccountId.Value);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Discovery failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _discovering = false;
+        }
+    }
+
+    private void AddSelectedResources()
+    {
+        if (_editing is null || _discovered is null) return;
+        foreach (var r in _discovered.Where(r => _selected.Contains(r.ExternalId)))
+        {
+            _editing.Services.Add(new Service
+            {
+                Name = r.Name,
+                Provider = r.Provider,
+                ServiceType = r.ResourceType,
+                Source = ServiceSource.Connected,
+                ExternalResourceId = r.ExternalId,
+                CloudAccountId = _discoverAccountId,
+                Currency = _editing.Currency
+            });
+        }
+        Snackbar.Add($"Added {_selected.Count} resource(s)", Severity.Success);
+        _selected.Clear();
+        _discovered = null;
     }
 
     private void AddService()

@@ -25,6 +25,13 @@ public sealed class AzureCloudConnector : ICloudConnector
 
     public CloudProvider Provider => CloudProvider.Azure;
 
+    public IReadOnlyList<CloudFieldSpec> CredentialSchema => new[]
+    {
+        new CloudFieldSpec("tenantId", "Tenant ID"),
+        new CloudFieldSpec("clientId", "Client ID (app registration)"),
+        new CloudFieldSpec("clientSecret", "Client secret", IsSecret: true)
+    };
+
     public AzureCloudConnector(ISecretStore secrets, ILogger<AzureCloudConnector> log)
     {
         _secrets = secrets;

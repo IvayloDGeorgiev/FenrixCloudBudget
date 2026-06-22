@@ -20,6 +20,10 @@ public class CloudAccount : EntityBase
     /// <summary>First 4 chars of the client secret/key for masked display ("abcd••••••••").</summary>
     public string? SecretHint { get; set; }
 
+    /// <summary>Non-secret credential fields (access key id, region, tenant/client id, project id, billing
+    /// dataset) as JSON, so the connector can be re-authenticated later by combining these with the stored secret.</summary>
+    public string? OptionsJson { get; set; }
+
     public DateTimeOffset? LastSyncedUtc { get; set; }
     public bool IsEnabled { get; set; } = true;
 

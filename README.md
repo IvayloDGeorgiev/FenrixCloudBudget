@@ -6,9 +6,10 @@
 >
 > **Tagline:** Group. Budget. Stay ahead.
 
-**Status:** Phase 1–2 scaffolding complete (manual budgeting + UI + settings + notifications).
-Cloud connectors, cost sync, and the backend are scaffolded behind interfaces for Phases 3–5.
-See `docs/IMPLEMENTATION_PLAN.md` for the full plan with live per-phase progress notes.
+**Status:** Phases 1–3 implemented — manual budgeting + UI + settings + notifications, plus
+live cloud account connection, resource discovery, and grouping resources into projects.
+Cost sync (Phase 4) and the multi-user backend (Phase 5) are scaffolded behind interfaces.
+See `docs/PROGRESS.md` for live per-phase status and `docs/IMPLEMENTATION_PLAN.md` for the design.
 
 ---
 
@@ -125,9 +126,9 @@ git push
 |---|---|---|
 | Clients, Projects, Services, Budgets | ✅ manual CRUD | — |
 | Dashboard | ✅ from manual data + filters | synced cost time-series (Phase 4) |
-| Reminders | ✅ manual + lead-times + snooze/done | auto-fill expiry from connected accounts (Phase 3) |
+| Reminders | ✅ manual + lead-times + snooze/done + link to connected account | auto-detect expiry (Phase 4) |
 | Notifications | ✅ in-app + device | email once a method is configured; server email (Phase 5) |
-| Cloud connectors | ⚙️ built behind `ICloudConnector` | wired into UI (Phase 3) + cost sync (Phase 4) |
+| Cloud connectors | ✅ connect accounts + discover resources + group into projects | cost sync (Phase 4) |
 | Auth / multi-user | local single-user | OTP + invites + B2C (Phase 5) |
 | Ads / Pro | ad slot placeholder | AdMob + Play Billing (Phase 2/6) |
 ```

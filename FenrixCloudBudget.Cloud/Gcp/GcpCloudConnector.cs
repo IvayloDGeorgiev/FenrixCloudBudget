@@ -25,6 +25,13 @@ public sealed class GcpCloudConnector : ICloudConnector
 
     public CloudProvider Provider => CloudProvider.Gcp;
 
+    public IReadOnlyList<CloudFieldSpec> CredentialSchema => new[]
+    {
+        new CloudFieldSpec("projectId", "Project ID"),
+        new CloudFieldSpec("serviceAccountJson", "Service account JSON", IsSecret: true),
+        new CloudFieldSpec("billingDataset", "Billing export dataset", Required: false, Placeholder: "billing_export")
+    };
+
     public GcpCloudConnector(ISecretStore secrets, ILogger<GcpCloudConnector> log)
     {
         _secrets = secrets;

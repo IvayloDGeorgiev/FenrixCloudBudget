@@ -11,6 +11,12 @@ public interface ICloudConnector
 {
     CloudProvider Provider { get; }
 
+    /// <summary>
+    /// Fields the connect-account UI renders for this provider (some marked secret).
+    /// Mirrors the email-adapter pattern: the UI builds the form dynamically from this schema.
+    /// </summary>
+    IReadOnlyList<CloudFieldSpec> CredentialSchema { get; }
+
     /// <summary>Validate &amp; securely store the supplied credential. Returns a SecretHint for masked display.</summary>
     Task<AuthResult> AuthenticateAsync(CloudCredential credential, CancellationToken ct = default);
 
@@ -26,6 +32,9 @@ public interface ICloudConnector
 }
 
 public record AuthResult(bool Success, string? CredentialReference = null, string? SecretHint = null, string? Error = null);
+
+/// <summary>Describes one credential field for a connector (drives the dynamic connect form).</summary>
+public record CloudFieldSpec(string Key, string Label, bool IsSecret = false, bool Required = true, string? Placeholder = null);
 
 /// <summary>Resolves the right connector for a provider (DI factory).</summary>
 public interface ICloudConnectorFactory
