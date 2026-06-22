@@ -7,6 +7,7 @@
     <!-- AWS -->
     <PackageReference Include="AWSSDK.CostExplorer" Version="3.7.*" />
     <PackageReference Include="AWSSDK.ResourceGroupsTaggingAPI" Version="3.7.*" />
+    <PackageReference Include="AWSSDK.SecurityToken" Version="3.7.*" />
     <!-- Azure -->
     <PackageReference Include="Azure.Identity" Version="1.13.*" />
     <PackageReference Include="Azure.ResourceManager" Version="1.13.*" />

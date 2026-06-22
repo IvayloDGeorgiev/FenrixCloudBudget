@@ -1620,6 +1620,10 @@ button,
     background: color-mix(in srgb, var(--fx-surface-2) 70%, var(--fx-surface));
 }
 
+.fx-project-editor-nav-toggle {
+    display: none;
+}
+
 .fx-project-editor-nav-item {
     width: 100%;
     display: grid;
@@ -1981,6 +1985,16 @@ button,
     font-size: 10px;
 }
 
+.fx-add-selected-button.mud-button-root,
+.fx-add-selected-button.mud-button-root .mud-button-label,
+.fx-add-selected-button.mud-button-root .mud-icon-root {
+    color: #fff !important;
+}
+
+.fx-add-selected-button.mud-button-root.mud-disabled {
+    opacity: .55;
+}
+
 .fx-project-resource-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2006,6 +2020,12 @@ button,
     transform: translateY(-1px);
 }
 
+.fx-project-resource-card.assigned {
+    opacity: .72;
+    border-style: dashed;
+    background: color-mix(in srgb, var(--fx-text-muted) 6%, var(--fx-surface-2));
+}
+
 .fx-project-resource-card > div {
     min-width: 0;
     display: grid;
@@ -2021,10 +2041,40 @@ button,
     white-space: nowrap;
 }
 
-.fx-project-resource-card > div > span:last-child {
+.fx-project-resource-card > div > strong ~ span {
     grid-column: 2;
     color: var(--fx-text-muted);
     font-size: 10px;
+}
+
+.fx-project-resource-card .fx-resource-assignment {
+    width: max-content;
+    max-width: 100%;
+    padding: 3px 7px;
+    border-radius: 999px;
+    color: var(--fx-warn);
+    font-size: 9px;
+    font-weight: 760;
+    overflow-wrap: anywhere;
+    background: color-mix(in srgb, var(--fx-warn) 13%, transparent);
+}
+
+.fx-project-footer {
+    width: 100%;
+    align-items: center;
+    gap: 8px;
+}
+
+.fx-project-footer-desktop {
+    display: flex;
+}
+
+.fx-project-footer-mobile {
+    display: none;
+}
+
+.fx-project-footer-spacer {
+    flex: 1 1 auto;
 }
 
 /* Dashboard spend-trend card + budget sparkline cell. */
@@ -2263,6 +2313,12 @@ button,
     align-items: center;
 }
 
+.fx-client-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
 .fx-client-avatar {
     width: 43px;
     height: 43px;
@@ -2326,6 +2382,19 @@ button,
 .fx-cloud-account-id,
 .fx-cloud-account-meta {
     font-size: 11px;
+}
+
+.fx-cloud-account-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: auto;
+    padding-top: 14px;
+}
+
+.fx-cloud-account-actions .fx-card-button {
+    min-width: 0;
+    flex: 1 1 auto;
 }
 
 .fx-cloud-account-id {
@@ -2862,7 +2931,7 @@ button,
 }
 
 /* ---- MudBlazor integration ---- */
-.mud-button-root {
+.mud-button-root:not(.mud-switch-base) {
     min-height: 40px;
     border-radius: var(--fx-radius-sm) !important;
     font-family: var(--fx-font) !important;
@@ -2877,7 +2946,7 @@ button,
     box-shadow: 0 10px 25px rgba(var(--fx-primary-rgb), .23) !important;
 }
 
-.mud-button-root:hover {
+.mud-button-root:not(.mud-switch-base):hover {
     transform: translateY(-2px);
     filter: brightness(1.04);
 }
@@ -3543,7 +3612,7 @@ button,
         grid-template-columns: auto minmax(0, 1fr);
     }
 
-    .fx-client-card-head > .mud-icon-button {
+    .fx-client-card-actions {
         grid-column: 2;
         justify-self: end;
         margin-top: -8px;
@@ -3654,20 +3723,128 @@ button,
     }
 }
 
-@media (max-width: 700px) {
+/* The project workspace becomes compact earlier than the rest of the app.
+   MAUI WebView scaling can report a wider CSS viewport than the visible window. */
+@media (max-width: 900px) {
+    .fx-modal-workspace .fx-modal-actions {
+        display: block;
+        padding: 8px 12px max(8px, env(safe-area-inset-bottom, 0px));
+    }
+
+    .fx-modal-workspace .fx-modal-actions > :first-child {
+        margin-right: 0;
+    }
+
+    .fx-project-footer-desktop {
+        display: none;
+    }
+
+    .fx-project-footer-mobile {
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .fx-project-footer-icon.mud-icon-button {
+        width: 44px;
+        height: 44px;
+        flex: 0 0 44px;
+        border: 1px solid var(--fx-border);
+        border-radius: 13px;
+        color: var(--fx-text);
+        background: var(--fx-surface-2);
+    }
+
+    .fx-project-footer-icon.delete.mud-icon-button {
+        color: var(--fx-danger);
+        background: color-mix(in srgb, var(--fx-danger) 9%, var(--fx-surface-2));
+    }
+
+    .fx-project-footer-icon.save.mud-icon-button {
+        border-color: transparent;
+        color: var(--fx-primary-contrast);
+        background: var(--fx-gradient);
+        box-shadow: 0 7px 20px rgba(var(--fx-primary-rgb), .22);
+    }
+
     .fx-project-editor-summary {
-        grid-template-columns: auto minmax(0, 1fr);
-        padding: 16px 18px;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+        padding: 14px 16px;
+    }
+
+    .fx-project-editor-mark {
+        display: none;
     }
 
     .fx-project-editor-stats {
         grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         width: 100%;
+        gap: 6px;
     }
 
     .fx-project-editor-stats > div {
         min-width: 0;
-        flex: 1 1 0;
+        padding: 6px 4px;
+    }
+
+    .fx-project-status {
+        width: 100%;
+        justify-content: center;
+        padding-inline: 5px;
+    }
+
+    .fx-project-editor-nav {
+        flex-direction: column;
+        overflow: visible;
+        gap: 6px;
+        padding: 10px 12px 12px;
+        border-right: 0;
+        border-bottom: 1px solid var(--fx-border);
+        scroll-snap-type: none;
+    }
+
+    .fx-project-editor-nav-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 8px 11px;
+        border: 0;
+        border-radius: 10px;
+        color: var(--fx-text-muted);
+        font-size: 10px;
+        font-weight: 760;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        background: color-mix(in srgb, var(--fx-surface) 70%, transparent);
+    }
+
+    .fx-project-editor-nav-item {
+        min-width: 0;
+        padding: 10px 12px;
+        scroll-snap-align: none;
+    }
+
+    .fx-project-editor-nav-item:hover {
+        transform: none;
+    }
+
+    .fx-project-editor-nav-item.active {
+        box-shadow: inset 3px 0 0 var(--fx-primary);
+    }
+
+    .fx-project-editor-nav.collapsed .fx-project-editor-nav-item:not(.active) {
+        display: none;
+    }
+
+    .fx-project-editor-nav.collapsed .fx-project-editor-nav-item.active small {
+        display: none;
+    }
+
+    .fx-project-editor-nav.collapsed .fx-project-editor-nav-item.active {
+        padding-block: 9px;
     }
 
     .fx-project-editor-content {
@@ -3725,19 +3902,8 @@ button,
 }
 
 @media (max-width: 480px) {
-    .fx-modal-workspace .fx-modal-actions > :first-child {
-        margin-right: 0;
-    }
-
     .fx-project-editor-summary {
-        gap: 11px;
-        padding: 14px;
-    }
-
-    .fx-project-editor-mark {
-        width: 42px;
-        height: 42px;
-        border-radius: 13px;
+        padding: 12px 13px;
     }
 
     .fx-project-editor-copy strong {
@@ -3745,25 +3911,23 @@ button,
     }
 
     .fx-project-editor-stats {
-        overflow-x: auto;
-        padding-bottom: 2px;
+        overflow: visible;
     }
 
     .fx-project-editor-stats > div {
-        min-width: 54px;
+        min-width: 0;
     }
 
     .fx-project-status {
-        align-self: stretch;
+        align-self: auto;
     }
 
     .fx-project-editor-nav {
-        padding-inline: 9px;
+        padding-inline: 10px;
     }
 
     .fx-project-editor-nav-item {
-        min-width: 178px;
-        padding: 10px;
+        min-width: 0;
     }
 
     .fx-project-editor-content {
@@ -3797,7 +3961,7 @@ button,
     .fx-tile:hover,
     .fx-theme-choice:hover,
     .fx-user-row:hover,
-    .mud-button-root:hover {
+    .mud-button-root:not(.mud-switch-base):hover {
         transform: none;
     }
 }

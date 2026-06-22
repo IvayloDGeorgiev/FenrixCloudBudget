@@ -32,6 +32,8 @@
 ### Recent: project services & budgets (UX request)
 - ✅ Manual services are inline-editable (name/provider/est. cost) and removable on the Projects editor.
 - ✅ Project creation/editing now uses a larger sectioned workspace (Basics, Services, Budgets, Cloud resources) with responsive card editors instead of one long form; manual services show the same live AWS/Azure/GCP provider badge as synced resources.
+- ✅ Mobile project editing uses a vertical collapsible section navigator and a single-line icon action bar; existing projects can be permanently deleted through a confirmation dialog.
+- ✅ Discovered cloud resources are exclusive to one project: assigned resources are disabled with their owning project shown, repeat selection is blocked, and save performs a final conflict check while cleaning older same-project duplicates.
 - ✅ Cloud-synced services are locked (read-only, lock icon) — managed via Cloud Accounts.
 - ✅ Per-project budgets: add/edit/remove with amount, period, and alert thresholds; surfaced on project tiles.
 - ✅ `SaveAsync` reconciles the tracked entity (EF detached `Update` does not delete removed children), so removals persist.
@@ -51,6 +53,7 @@ Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 ## Phase 1 — Core app shell & manual budgeting
 - ✅ Splash, tile landing (`Home.razor`), nav shell, Aurora theme (+3 more themes).
 - ✅ Clients CRUD; Projects CRUD with manual services; Reminders (lead-times, snooze/done).
+- ✅ Client deletion uses confirmation and safely leaves linked projects intact as unassigned projects.
 - ✅ Dashboard v1 (provider/client/date filters; donut, budget-vs-actual, top-services).
 - ✅ Shared notification service: in-app + local device; budget + reminder evaluators; scheduler.
 - 🟡 Quick-add-client-from-project flow: Projects page picks an existing client; inline quick-add dialog still to wire.
@@ -70,6 +73,7 @@ Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 - ✅ Secure credential storage (AES + masked hint); non-secret fields persisted as `CloudAccount.OptionsJson` for re-auth.
 - ✅ `CloudConnectionService` orchestrates connect / re-authenticate / discover (covered by `CloudConnectionServiceTests`).
 - ✅ Cloud Accounts page: connect-account dialog (dynamic per-provider fields) + per-account "Discover resources".
+- ✅ Cloud Accounts can now be edited, revalidated, updated, or deleted; encrypted secrets can be retained during edits, and Azure connections require a validated Subscription ID with concise RBAC guidance.
 - ✅ "Choose existing resources" in Projects: pick account → discover → multi-select → added as connected Services.
 - 🟡 Reminders can be **linked** to a connected account (picker added); **auto-detecting the secret/cert expiry date is still TODO** (needs the cost/metadata sync in Phase 4).
 - **Next:** auto-fill reminder expiry from app-registration secret/certificate metadata.

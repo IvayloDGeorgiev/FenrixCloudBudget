@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Azure;
 using Azure.Core;
 using Azure.Identity;
 using Azure.ResourceManager;
@@ -38,8 +39,9 @@ public sealed class AzureCloudConnector : ICloudConnector
 
     public IReadOnlyList<CloudFieldSpec> CredentialSchema => new[]
     {
-        new CloudFieldSpec("tenantId", "Tenant ID"),
-        new CloudFieldSpec("clientId", "Client ID (app registration)"),
+        new CloudFieldSpec("tenantId", "Tenant ID", Placeholder: "00000000-0000-0000-0000-000000000000"),
+        new CloudFieldSpec("clientId", "Client ID (app registration)", Placeholder: "00000000-0000-0000-0000-000000000000"),
+        new CloudFieldSpec("subscriptionId", "Subscription ID", Placeholder: "00000000-0000-0000-0000-000000000000"),
         new CloudFieldSpec("clientSecret", "Client secret", IsSecret: true)
     };
 
@@ -57,23 +59,68 @@ public sealed class AzureCloudConnector : ICloudConnector
     {
         try
         {
-            var tenant = credential.Fields["tenantId"];
-            var clientId = credential.Fields["clientId"];
-            var clientSecret = credential.Fields["clientSecret"];
+            if (!credential.Fields.TryGetValue("tenantId", out var tenant) || string.IsNullOrWhiteSpace(tenant))
+                return new AuthResult(false, Error: "Tenant ID is required.");
+            if (!credential.Fields.TryGetValue("clientId", out var clientId) || string.IsNullOrWhiteSpace(clientId))
+                return new AuthResult(false, Error: "Client ID is required.");
+            if (!credential.Fields.TryGetValue("subscriptionId", out var subscriptionId) || string.IsNullOrWhiteSpace(subscriptionId))
+                return new AuthResult(false, Error: "Subscription ID is required.");
+            if (!credential.Fields.TryGetValue("clientSecret", out var clientSecret) || string.IsNullOrWhiteSpace(clientSecret))
+                return new AuthResult(false, Error: "Client secret is required.");
+
+            if (!Guid.TryParse(tenant, out _))
+                return new AuthResult(false, Error: "Tenant ID must be a valid GUID.");
+            if (!Guid.TryParse(clientId, out _))
+                return new AuthResult(false, Error: "Client ID must be a valid GUID.");
+            if (!Guid.TryParse(subscriptionId, out _))
+                return new AuthResult(false, Error: "Subscription ID must be a valid GUID.");
 
             _credential = new ClientSecretCredential(tenant, clientId, clientSecret);
             _arm = new ArmClient(_credential);
 
-            // Validate by enumerating subscriptions.
-            await foreach (var _ in _arm.GetSubscriptions().GetAllAsync(ct)) break;
+            // Authentication alone does not grant Azure resource access. Confirm that this service
+            // principal can see the requested subscription before storing the credential.
+            var subscriptionVisible = false;
+            await foreach (var subscription in _arm.GetSubscriptions().GetAllAsync(ct))
+            {
+                if (string.Equals(subscription.Data.SubscriptionId, subscriptionId, StringComparison.OrdinalIgnoreCase))
+                {
+                    subscriptionVisible = true;
+                    break;
+                }
+            }
+
+            if (!subscriptionVisible)
+            {
+                return new AuthResult(
+                    false,
+                    Error: "The app registration authenticated, but it cannot access that subscription. " +
+                           "Assign its service principal the Reader role and Cost Management Reader role at the subscription scope, then try again.");
+            }
 
             var handle = await _secrets.SaveAsync(clientSecret, ct);
             return new AuthResult(true, handle.Reference, handle.Hint);
         }
+        catch (AuthenticationFailedException ex)
+        {
+            _log.LogWarning(ex, "Azure credential authentication failed");
+            return new AuthResult(
+                false,
+                Error: "Azure authentication failed. Check the Tenant ID, Client ID, client-secret value, and whether the secret has expired.");
+        }
+        catch (RequestFailedException ex) when (ex.Status == 403)
+        {
+            _log.LogWarning(ex, "Azure subscription access validation failed");
+            return new AuthResult(
+                false,
+                Error: "The credentials are valid, but Azure denied subscription access. Assign the service principal Reader and Cost Management Reader at the subscription scope.");
+        }
         catch (Exception ex)
         {
             _log.LogWarning(ex, "Azure authentication failed");
-            return new AuthResult(false, Error: ex.Message);
+            return new AuthResult(
+                false,
+                Error: "Azure could not validate the connection. Check the IDs, client secret, subscription access, and try again.");
         }
     }
 
@@ -94,6 +141,12 @@ public sealed class AzureCloudConnector : ICloudConnector
     public async Task<IReadOnlyList<DiscoveredResource>> DiscoverResourcesAsync(string scopeId, CancellationToken ct = default)
     {
         EnsureAuth();
+        if (!Guid.TryParse(scopeId, out _))
+        {
+            throw new InvalidOperationException(
+                "This Azure account has no valid Subscription ID. Edit the cloud account, enter the Azure subscription GUID, and validate it again.");
+        }
+
         var tenant = _arm!.GetTenants().First();
         var query = new ResourceQueryContent(
             "Resources | project id, name, type, location, resourceGroup | limit 1000")
@@ -101,7 +154,23 @@ public sealed class AzureCloudConnector : ICloudConnector
             Subscriptions = { scopeId }
         };
 
-        var resp = await tenant.GetResourcesAsync(query, ct);
+        Response<ResourceQueryResult> resp;
+        try
+        {
+            resp = await tenant.GetResourcesAsync(query, ct);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 403)
+        {
+            throw new InvalidOperationException(
+                "Azure denied resource discovery. Assign the app registration's service principal the Reader role at the subscription scope.",
+                ex);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 400)
+        {
+            throw new InvalidOperationException(
+                "Azure rejected the subscription scope. Check that the Subscription ID is correct and that the service principal can access it.",
+                ex);
+        }
         var results = new List<DiscoveredResource>();
         // The /resources payload is dynamic JSON; map the projected columns.
         foreach (var row in System.Text.Json.JsonSerializer

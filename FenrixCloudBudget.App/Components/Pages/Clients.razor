@@ -32,10 +32,19 @@ else
                         <h2>@c.Name</h2>
                         <span>@(string.IsNullOrWhiteSpace(c.CompanyName) ? "Independent client" : c.CompanyName)</span>
                     </div>
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                   Size="Size.Small"
-                                   aria-label="Edit client"
-                                   OnClick="@(() => Edit(c))" />
+                    <div class="fx-client-card-actions">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                       Size="Size.Small"
+                                       title="Edit client"
+                                       aria-label="Edit client"
+                                       OnClick="@(() => Edit(c))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                       Size="Size.Small"
+                                       Color="Color.Error"
+                                       title="Delete client"
+                                       aria-label="Delete client"
+                                       OnClick="@(() => RequestDelete(c, false))" />
+                    </div>
                 </div>
                 <div class="fx-client-meta">
                     <div>
@@ -67,15 +76,38 @@ else
             <MudTextField @bind-Value="_editing.Notes" Label="Notes" Lines="2" />
         </ChildContent>
         <FooterContent>
+            @if (_editing.Id > 0)
+            {
+                <MudButton Color="Color.Error"
+                           StartIcon="@Icons.Material.Filled.Delete"
+                           OnClick="@(() => RequestDelete(_editing!, true))">
+                    Delete client
+                </MudButton>
+                <span class="fx-action-spacer"></span>
+            }
             <MudButton OnClick="CloseEditor">Cancel</MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Save</MudButton>
         </FooterContent>
     </AppModal>
 }
 
+@if (_deleting is not null)
+{
+    <ConfirmDeleteModal Title="Delete client?"
+                        ItemName="@_deleting.Name"
+                        Message="@DeleteMessage"
+                        ConfirmText="Delete client"
+                        CancelText="Keep client"
+                        Icon="@Icons.Material.Filled.DeleteForever"
+                        OnCancel="CancelDelete"
+                        OnConfirm="ConfirmDeleteAsync" />
+}
+
 @code {
     private List<Client> _clients = new();
     private Client? _editing;
+    private Client? _deleting;
+    private bool _returnToEditorAfterDelete;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -91,6 +123,61 @@ else
     }
 
     private void CloseEditor() => _editing = null;
+
+    private string DeleteMessage
+    {
+        get
+        {
+            var projectCount = _deleting?.Projects.Count ?? 0;
+            var projectImpact = projectCount switch
+            {
+                0 => "It has no linked projects.",
+                1 => "Its linked project will remain and become unassigned.",
+                _ => $"Its {projectCount} linked projects will remain and become unassigned."
+            };
+            return $"This permanently removes the client. {projectImpact} This action cannot be undone.";
+        }
+    }
+
+    private void RequestDelete(Client client, bool returnToEditor)
+    {
+        if (client.Id == 0) return;
+        _deleting = client;
+        _returnToEditorAfterDelete = returnToEditor;
+        if (returnToEditor)
+            _editing = null;
+    }
+
+    private void CancelDelete()
+    {
+        if (_returnToEditorAfterDelete)
+            _editing = _deleting;
+
+        _deleting = null;
+        _returnToEditorAfterDelete = false;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (_deleting is null) return;
+
+        var clientId = _deleting.Id;
+        _deleting = null;
+        _editing = null;
+        _returnToEditorAfterDelete = false;
+        await InvokeAsync(StateHasChanged);
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var client = await db.Clients.FirstOrDefaultAsync(item => item.Id == clientId);
+        if (client is not null)
+        {
+            db.Clients.Remove(client);
+            await db.SaveChangesAsync();
+        }
+
+        Snackbar.Add("Client deleted. Existing projects are now unassigned.", Severity.Success);
+        await LoadAsync();
+    }
 
     private static string ClientInitials(Client client)
     {

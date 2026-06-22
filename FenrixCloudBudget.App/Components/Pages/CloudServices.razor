@@ -21,11 +21,25 @@
         <article class="fx-tile fx-cloud-account-card">
             <span class="fx-chip @a.Provider.ToString().ToLower()">@a.Provider</span>
             <div class="fx-tile-title">@a.DisplayName</div>
-            <div class="fx-cloud-account-id">@a.AccountOrSubscriptionId</div>
+            <div class="fx-cloud-account-id">@(string.IsNullOrWhiteSpace(a.AccountOrSubscriptionId) ? "Scope not configured" : a.AccountOrSubscriptionId)</div>
             <div class="fx-cloud-account-meta">Key: @(a.SecretHint ?? "—")</div>
             <div class="fx-cloud-account-meta">@(a.LastSyncedUtc is null ? "Never synced" : $"Synced {a.LastSyncedUtc:yyyy-MM-dd}")</div>
-            <MudButton Class="fx-card-button" Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Search"
-                       OnClick="@(() => DiscoverAsync(a))">Discover resources</MudButton>
+            <div class="fx-cloud-account-actions">
+                <MudButton Class="fx-card-button" Size="Size.Small" Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="@(() => DiscoverAsync(a))">Discover resources</MudButton>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                               Size="Size.Small"
+                               title="Edit cloud account"
+                               aria-label="Edit cloud account"
+                               OnClick="@(() => OpenEdit(a))" />
+                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                               Size="Size.Small"
+                               Color="Color.Error"
+                               title="Delete cloud account"
+                               aria-label="Delete cloud account"
+                               OnClick="@(() => RequestDelete(a, false))" />
+            </div>
         </article>
     }
     @if (_accounts.Count == 0) { <Empty Text="No cloud accounts connected yet." /> }
@@ -72,30 +86,41 @@
 
 @if (_connectOpen)
 {
-    <AppModal Title="Connect cloud account"
+    <AppModal Title="@(_editingAccount is null ? "Connect cloud account" : "Edit cloud account")"
               Width="small"
               CanCancel="@(!_busy)"
               OnCancel="CloseConnect">
         <ChildContent>
-            <MudSelect T="CloudProvider" @bind-Value="_provider" Label="Provider" @bind-Value:after="OnProviderChanged">
+            <MudSelect T="CloudProvider" @bind-Value="_provider" Label="Provider"
+                       Disabled="@(_editingAccount is not null)"
+                       @bind-Value:after="OnProviderChanged">
                 <MudSelectItem Value="CloudProvider.Aws">AWS</MudSelectItem>
                 <MudSelectItem Value="CloudProvider.Azure">Azure</MudSelectItem>
                 <MudSelectItem Value="CloudProvider.Gcp">GCP</MudSelectItem>
             </MudSelect>
             <MudTextField @bind-Value="_displayName" Label="Display name" Placeholder="e.g. Acme production" />
 
+            @if (_provider == CloudProvider.Azure)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                    The app registration identifies the service principal; the Subscription ID selects the billing/resource scope.
+                    Assign that service principal <strong>Reader</strong> and <strong>Cost Management Reader</strong> on the subscription.
+                </MudAlert>
+            }
+
             @foreach (var f in _schema)
             {
-                <MudTextField T="string" Label="@(f.Label + (f.Required ? " *" : ""))"
+                <MudTextField T="string" Label="@(f.Label + (FieldRequired(f) ? " *" : ""))"
                               InputType="@(f.IsSecret ? InputType.Password : InputType.Text)"
                               Placeholder="@f.Placeholder"
-                              HelperText="@(f.IsSecret ? "Stored encrypted; shown masked after save." : null)"
+                              HelperText="@FieldHelp(f)"
                               Value="@GetField(f.Key)" ValueChanged="v => SetField(f.Key, v)" />
             }
 
             <MudText Typo="Typo.caption" Class="mt-2">
                 Least-privilege roles: AWS <code>ce:GetCostAndUsage</code> + <code>tag:GetResources</code>;
-                Azure "Cost Management Reader"; GCP Billing Account Viewer + BigQuery roles.
+                Azure <strong>Reader</strong> + <strong>Cost Management Reader</strong> at subscription scope;
+                GCP Billing Account Viewer + BigQuery roles.
             </MudText>
 
             @if (!string.IsNullOrEmpty(_error))
@@ -104,12 +129,33 @@
             }
         </ChildContent>
         <FooterContent>
+            @if (_editingAccount is not null)
+            {
+                <MudButton Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete"
+                           Disabled="_busy"
+                           OnClick="@(() => RequestDelete(_editingAccount!, true))">
+                    Delete account
+                </MudButton>
+                <span class="fx-action-spacer"></span>
+            }
             <MudButton Disabled="_busy" OnClick="CloseConnect">Cancel</MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ConnectAsync" Disabled="_busy">
-                @(_busy ? "Connecting…" : "Connect & validate")
+                @(_busy ? "Validating…" : _editingAccount is null ? "Connect & validate" : "Update & validate")
             </MudButton>
         </FooterContent>
     </AppModal>
+}
+
+@if (_deletingAccount is not null)
+{
+    <ConfirmDeleteModal Title="Delete cloud account?"
+                        ItemName="@_deletingAccount.DisplayName"
+                        Message="This removes the connection and its stored credential. Projects, services and reminders remain, but they will no longer be linked to this cloud account."
+                        ConfirmText="Delete account"
+                        CancelText="Keep account"
+                        Icon="@Icons.Material.Filled.DeleteForever"
+                        OnCancel="CancelDelete"
+                        OnConfirm="ConfirmDeleteAsync" />
 }
 
 @code {
@@ -120,6 +166,9 @@
     private string? _error;
     private IReadOnlyList<CloudFieldSpec> _schema = Array.Empty<CloudFieldSpec>();
     private readonly Dictionary<string, string> _fields = new();
+    private CloudAccount? _editingAccount;
+    private CloudAccount? _deletingAccount;
+    private bool _returnToEditorAfterDelete;
 
     private IReadOnlyList<DiscoveredResource>? _discovered;
     private CloudAccount? _discoveredAccount;
@@ -134,6 +183,7 @@
 
     private void OpenConnect()
     {
+        _editingAccount = null;
         _error = null;
         _displayName = "";
         _fields.Clear();
@@ -141,10 +191,47 @@
         _connectOpen = true;
     }
 
+    private void OpenEdit(CloudAccount account)
+    {
+        _editingAccount = account;
+        _provider = account.Provider;
+        _displayName = account.DisplayName;
+        _error = null;
+        _fields.Clear();
+        if (!string.IsNullOrWhiteSpace(account.OptionsJson))
+        {
+            var savedFields = System.Text.Json.JsonSerializer
+                .Deserialize<Dictionary<string, string>>(account.OptionsJson) ?? new();
+            foreach (var pair in savedFields)
+                _fields[pair.Key] = pair.Value;
+        }
+
+        var scopeKey = account.Provider switch
+        {
+            CloudProvider.Azure => "subscriptionId",
+            CloudProvider.Gcp => "projectId",
+            _ => null
+        };
+        if (scopeKey is not null
+            && !_fields.ContainsKey(scopeKey)
+            && !string.IsNullOrWhiteSpace(account.AccountOrSubscriptionId))
+            _fields[scopeKey] = account.AccountOrSubscriptionId;
+
+        // Never load the secret into the UI. Blank means "keep the encrypted saved value".
+        _schema = Connections.SchemaFor(_provider);
+        foreach (var secretField in _schema.Where(field => field.IsSecret))
+            _fields[secretField.Key] = "";
+
+        _connectOpen = true;
+    }
+
     private void CloseConnect()
     {
         if (!_busy)
+        {
             _connectOpen = false;
+            _editingAccount = null;
+        }
     }
 
     private void OnProviderChanged()
@@ -155,22 +242,35 @@
 
     private string GetField(string key) => _fields.GetValueOrDefault(key, "");
     private void SetField(string key, string val) => _fields[key] = val;
+    private bool FieldRequired(CloudFieldSpec field) => field.Required && !(_editingAccount is not null && field.IsSecret);
+    private string? FieldHelp(CloudFieldSpec field)
+        => field.IsSecret
+            ? _editingAccount is null
+                ? "Stored encrypted; shown masked after save."
+                : "Leave blank to keep the existing encrypted secret."
+            : field.Key == "subscriptionId"
+                ? "Azure portal → Subscriptions → select the subscription → copy Subscription ID."
+                : null;
 
     private async Task ConnectAsync()
     {
         _busy = true;
         _error = null;
+        var isUpdate = _editingAccount is not null;
         try
         {
-            var result = await Connections.ConnectAsync(_provider, _displayName, _fields);
+            var result = _editingAccount is null
+                ? await Connections.ConnectAsync(_provider, _displayName, _fields)
+                : await Connections.UpdateAsync(_editingAccount.Id, _displayName, _fields);
             if (!result.Success)
             {
                 _error = result.Error;
                 return;
             }
             _connectOpen = false;
+            _editingAccount = null;
             await InvokeAsync(StateHasChanged);
-            Snackbar.Add("Account connected", Severity.Success);
+            Snackbar.Add(isUpdate ? "Account updated" : "Account connected", Severity.Success);
             await LoadAsync();
         }
         catch (Exception ex)
@@ -195,5 +295,53 @@
         {
             Snackbar.Add($"Discovery failed: {ex.Message}", Severity.Error);
         }
+    }
+
+    private void RequestDelete(CloudAccount account, bool returnToEditor)
+    {
+        _deletingAccount = account;
+        _returnToEditorAfterDelete = returnToEditor;
+        if (returnToEditor)
+        {
+            _connectOpen = false;
+            _editingAccount = null;
+        }
+    }
+
+    private void CancelDelete()
+    {
+        if (_returnToEditorAfterDelete && _deletingAccount is not null)
+            OpenEdit(_deletingAccount);
+
+        _deletingAccount = null;
+        _returnToEditorAfterDelete = false;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (_deletingAccount is null) return;
+
+        var accountId = _deletingAccount.Id;
+        _deletingAccount = null;
+        _editingAccount = null;
+        _connectOpen = false;
+        _returnToEditorAfterDelete = false;
+        await InvokeAsync(StateHasChanged);
+
+        var deleted = await Connections.DeleteAsync(accountId);
+        if (!deleted)
+        {
+            Snackbar.Add("Cloud account was already removed", Severity.Warning);
+            await LoadAsync();
+            return;
+        }
+        if (_discoveredAccount?.Id == accountId)
+        {
+            _discoveredAccount = null;
+            _discovered = null;
+        }
+
+        Snackbar.Add("Cloud account deleted", Severity.Success);
+        await LoadAsync();
     }
 }

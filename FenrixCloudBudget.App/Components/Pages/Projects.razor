@@ -65,7 +65,15 @@
                     </div>
                 </header>
 
-                <nav class="fx-project-editor-nav" aria-label="Project editor sections">
+                <nav class="@ProjectNavClass" aria-label="Project editor sections">
+                    <button type="button"
+                            class="fx-project-editor-nav-toggle"
+                            aria-expanded="@(!_mobileSectionsCollapsed)"
+                            @onclick="ToggleMobileSections">
+                        <span>Project sections</span>
+                        <MudIcon Icon="@(_mobileSectionsCollapsed ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ExpandLess)"
+                                 Size="Size.Small" />
+                    </button>
                     <button type="button" class="@SectionClass(ProjectEditorSection.Basics)"
                             @onclick="@(() => OpenSection(ProjectEditorSection.Basics))">
                         <MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" />
@@ -367,7 +375,8 @@
                                             <strong>Discovered resources</strong>
                                             <span>Select the resources to include in this project.</span>
                                         </div>
-                                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                                        <MudButton Class="fx-add-selected-button"
+                                                   Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                                                    OnClick="AddSelectedResources" Disabled="@(_selected.Count == 0)">
                                             Add @_selected.Count selected
                                         </MudButton>
@@ -375,13 +384,18 @@
                                     <div class="fx-project-resource-grid">
                                         @foreach (var r in _discovered)
                                         {
-                                            <div class="fx-project-resource-card @(_selected.Contains(r.ExternalId) ? "selected" : "")">
+                                            <div class="@ResourceCardClass(r.ExternalId)">
                                                 <MudCheckBox T="bool" Value="@_selected.Contains(r.ExternalId)"
+                                                             Disabled="@IsResourceAssigned(r.ExternalId)"
                                                              ValueChanged="@(v => Toggle(r.ExternalId, v))" />
                                                 <div>
                                                     <span class="fx-chip @r.Provider.ToString().ToLower()">@ProviderLabel(r.Provider)</span>
                                                     <strong>@r.Name</strong>
                                                     <span>@r.ResourceType</span>
+                                                    @if (AssignmentText(r.ExternalId) is { } assignment)
+                                                    {
+                                                        <span class="fx-resource-assignment">@assignment</span>
+                                                    }
                                                 </div>
                                             </div>
                                         }
@@ -394,22 +408,74 @@
             </div>
         </ChildContent>
         <FooterContent>
-            <MudButton OnClick="CloseEditor">Cancel</MudButton>
-            @if (_editorSection != ProjectEditorSection.Basics)
-            {
-                <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="PreviousSection">Back</MudButton>
-            }
-            @if (_editorSection != ProjectEditorSection.CloudResources)
-            {
+            <div class="fx-project-footer fx-project-footer-desktop">
+                @if (_editing.Id > 0)
+                {
+                    <MudButton Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete"
+                               OnClick="RequestDelete">Delete project</MudButton>
+                }
+                <span class="fx-project-footer-spacer"></span>
+                <MudButton OnClick="CloseEditor">Cancel</MudButton>
+                <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
+                           Disabled="@(_editorSection == ProjectEditorSection.Basics)"
+                           OnClick="PreviousSection">Back</MudButton>
                 <MudButton Variant="Variant.Outlined" EndIcon="@Icons.Material.Filled.ArrowForward"
+                           Disabled="@(_editorSection == ProjectEditorSection.CloudResources)"
                            OnClick="NextSection">Next</MudButton>
-            }
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
-                       Disabled="@(string.IsNullOrWhiteSpace(_editing.Name))" OnClick="SaveAsync">
-                Save project
-            </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
+                           Disabled="@(string.IsNullOrWhiteSpace(_editing.Name))" OnClick="SaveAsync">
+                    Save project
+                </MudButton>
+            </div>
+
+            <div class="fx-project-footer fx-project-footer-mobile" aria-label="Project editor actions">
+                @if (_editing.Id > 0)
+                {
+                    <MudIconButton Class="fx-project-footer-icon delete"
+                                   Icon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error"
+                                   title="Delete project"
+                                   aria-label="Delete project"
+                                   OnClick="RequestDelete" />
+                }
+                <MudIconButton Class="fx-project-footer-icon"
+                               Icon="@Icons.Material.Filled.Close"
+                               title="Cancel"
+                               aria-label="Cancel"
+                               OnClick="CloseEditor" />
+                <MudIconButton Class="fx-project-footer-icon"
+                               Icon="@Icons.Material.Filled.ArrowBack"
+                               Disabled="@(_editorSection == ProjectEditorSection.Basics)"
+                               title="Previous section"
+                               aria-label="Previous section"
+                               OnClick="PreviousSection" />
+                <MudIconButton Class="fx-project-footer-icon"
+                               Icon="@Icons.Material.Filled.ArrowForward"
+                               Disabled="@(_editorSection == ProjectEditorSection.CloudResources)"
+                               title="Next section"
+                               aria-label="Next section"
+                               OnClick="NextSection" />
+                <MudIconButton Class="fx-project-footer-icon save"
+                               Icon="@Icons.Material.Filled.Save"
+                               Disabled="@(string.IsNullOrWhiteSpace(_editing.Name))"
+                               title="Save project"
+                               aria-label="Save project"
+                               OnClick="SaveAsync" />
+            </div>
         </FooterContent>
     </AppModal>
+}
+
+@if (_deleting is not null)
+{
+    <ConfirmDeleteModal Title="Delete project?"
+                        ItemName="@_deleting.Name"
+                        Message="This permanently removes the project, its budgets, services and recorded cost history. This action cannot be undone."
+                        ConfirmText="Delete project"
+                        CancelText="Keep project"
+                        Icon="@Icons.Material.Filled.DeleteForever"
+                        OnCancel="CancelDelete"
+                        OnConfirm="ConfirmDeleteAsync" />
 }
 
 @code {
@@ -419,15 +485,18 @@
     private List<Client> _clients = new();
     private List<CloudAccount> _accounts = new();
     private Project? _editing;
+    private Project? _deleting;
     private Service _newService = new();
     private Budget _newBudget = new() { Thresholds = "50,80,100" };
     private ProjectEditorSection _editorSection = ProjectEditorSection.Basics;
+    private bool _mobileSectionsCollapsed;
 
     // "Choose existing resources" state
     private int? _discoverAccountId;
     private bool _discovering;
     private IReadOnlyList<DiscoveredResource>? _discovered;
     private readonly HashSet<string> _selected = new();
+    private readonly Dictionary<string, ResourceAssignment> _resourceAssignments = new(StringComparer.OrdinalIgnoreCase);
 
     private enum ProjectEditorSection
     {
@@ -436,6 +505,8 @@
         Budgets,
         CloudResources
     }
+
+    private sealed record ResourceAssignment(int ProjectId, string ProjectName, bool IsCurrentProject);
 
     private int ManualServiceCount
         => _editing?.Services.Count(s => s.Source == ServiceSource.Manual) ?? 0;
@@ -488,36 +559,110 @@
     private string SectionClass(ProjectEditorSection section)
         => $"fx-project-editor-nav-item {(_editorSection == section ? "active" : "")}";
 
-    private void OpenSection(ProjectEditorSection section) => _editorSection = section;
+    private string ProjectNavClass
+        => $"fx-project-editor-nav {(_mobileSectionsCollapsed ? "collapsed" : "expanded")}";
+
+    private void ToggleMobileSections()
+        => _mobileSectionsCollapsed = !_mobileSectionsCollapsed;
+
+    private void OpenSection(ProjectEditorSection section)
+    {
+        _editorSection = section;
+        _mobileSectionsCollapsed = true;
+    }
 
     private void PreviousSection()
     {
         if (_editorSection > ProjectEditorSection.Basics)
             _editorSection = (ProjectEditorSection)((int)_editorSection - 1);
+        _mobileSectionsCollapsed = true;
     }
 
     private void NextSection()
     {
         if (_editorSection < ProjectEditorSection.CloudResources)
             _editorSection = (ProjectEditorSection)((int)_editorSection + 1);
+        _mobileSectionsCollapsed = true;
     }
 
     private void Edit(Project p)
     {
         _editing = p;
         _editorSection = ProjectEditorSection.Basics;
+        _mobileSectionsCollapsed = false;
         _newService = new Service();
         _newBudget = new Budget { Thresholds = "50,80,100", Period = BudgetPeriod.Monthly };
         _discovered = null;
         _selected.Clear();
+        _resourceAssignments.Clear();
         _discoverAccountId = _accounts.FirstOrDefault()?.Id;
     }
 
     private void CloseEditor() => _editing = null;
 
+    private void RequestDelete()
+    {
+        if (_editing is not { Id: > 0 }) return;
+        _deleting = _editing;
+        _editing = null;
+    }
+
+    private void CancelDelete()
+    {
+        _editing = _deleting;
+        _deleting = null;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (_deleting is null) return;
+
+        var projectId = _deleting.Id;
+        _deleting = null;
+        await InvokeAsync(StateHasChanged);
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var project = await db.Projects.FirstOrDefaultAsync(item => item.Id == projectId);
+        if (project is not null)
+        {
+            db.Projects.Remove(project);
+            await db.SaveChangesAsync();
+        }
+
+        Snackbar.Add("Project deleted", Severity.Success);
+        await LoadAsync();
+    }
+
     private void Toggle(string id, bool on)
     {
+        if (IsResourceAssigned(id))
+        {
+            _selected.Remove(id);
+            return;
+        }
+
         if (on) _selected.Add(id); else _selected.Remove(id);
+    }
+
+    private bool IsResourceAssigned(string externalId)
+        => _resourceAssignments.ContainsKey(externalId);
+
+    private string? AssignmentText(string externalId)
+    {
+        if (!_resourceAssignments.TryGetValue(externalId, out var assignment))
+            return null;
+
+        return assignment.IsCurrentProject
+            ? "Already in this project"
+            : $"Assigned to {assignment.ProjectName}";
+    }
+
+    private string ResourceCardClass(string externalId)
+    {
+        var classes = "fx-project-resource-card";
+        if (_selected.Contains(externalId)) classes += " selected";
+        if (IsResourceAssigned(externalId)) classes += " assigned";
+        return classes;
     }
 
     private async Task DiscoverAsync()
@@ -525,9 +670,11 @@
         if (_discoverAccountId is null) return;
         _discovering = true;
         _selected.Clear();
+        _resourceAssignments.Clear();
         try
         {
             _discovered = await Connections.DiscoverAsync(_discoverAccountId.Value);
+            await LoadResourceAssignmentsAsync(_discoverAccountId.Value, _discovered);
         }
         catch (Exception ex)
         {
@@ -539,11 +686,71 @@
         }
     }
 
+    private async Task LoadResourceAssignmentsAsync(
+        int accountId,
+        IReadOnlyList<DiscoveredResource> resources)
+    {
+        if (_editing is null || resources.Count == 0) return;
+
+        var externalIds = resources
+            .Select(resource => resource.ExternalId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (externalIds.Length == 0) return;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var persisted = await db.Services
+            .AsNoTracking()
+            .Where(service => service.Source == ServiceSource.Connected
+                              && service.CloudAccountId == accountId
+                              && service.ExternalResourceId != null
+                              && externalIds.Contains(service.ExternalResourceId))
+            .Select(service => new
+            {
+                service.ExternalResourceId,
+                service.ProjectId,
+                ProjectName = service.Project.Name
+            })
+            .ToListAsync();
+
+        foreach (var service in persisted)
+        {
+            if (string.IsNullOrWhiteSpace(service.ExternalResourceId)) continue;
+            _resourceAssignments.TryAdd(
+                service.ExternalResourceId,
+                new ResourceAssignment(
+                    service.ProjectId,
+                    service.ProjectName,
+                    _editing.Id > 0 && service.ProjectId == _editing.Id));
+        }
+
+        // Include resources added to this editor but not saved yet.
+        foreach (var service in _editing.Services.Where(service =>
+                     service.Source == ServiceSource.Connected
+                     && service.CloudAccountId == accountId
+                     && !string.IsNullOrWhiteSpace(service.ExternalResourceId)))
+        {
+            _resourceAssignments[service.ExternalResourceId!] =
+                new ResourceAssignment(_editing.Id, ProjectDisplayName, true);
+        }
+    }
+
     private void AddSelectedResources()
     {
         if (_editing is null || _discovered is null) return;
+        var existingKeys = _editing.Services
+            .Where(service => service.Source == ServiceSource.Connected)
+            .Select(ResourceKey)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var added = 0;
+
         foreach (var r in _discovered.Where(r => _selected.Contains(r.ExternalId)))
         {
+            var key = ResourceKey(_discoverAccountId, r.ExternalId);
+            if (IsResourceAssigned(r.ExternalId) || !existingKeys.Add(key))
+                continue;
+
             _editing.Services.Add(new Service
             {
                 Name = r.Name,
@@ -554,10 +761,15 @@
                 CloudAccountId = _discoverAccountId,
                 Currency = _editing.Currency
             });
+            added++;
         }
-        Snackbar.Add($"Added {_selected.Count} resource(s)", Severity.Success);
+
+        Snackbar.Add(
+            added == 0 ? "No new resources were added" : $"Added {added} resource(s)",
+            added == 0 ? Severity.Warning : Severity.Success);
         _selected.Clear();
         _discovered = null;
+        _resourceAssignments.Clear();
         _editorSection = ProjectEditorSection.Services;
     }
 
@@ -594,7 +806,16 @@
     {
         if (_editing is null || string.IsNullOrWhiteSpace(_editing.Name)) return;
         var project = _editing;
+        DeduplicateConnectedServices(project);
         await using var db = await DbFactory.CreateDbContextAsync();
+
+        var assignmentConflict = await FindConnectedResourceConflictAsync(db, project);
+        if (assignmentConflict is not null)
+        {
+            _editorSection = ProjectEditorSection.CloudResources;
+            Snackbar.Add(assignmentConflict, Severity.Error);
+            return;
+        }
 
         if (project.Id == 0)
         {
@@ -623,8 +844,9 @@
             var keepServiceIds = project.Services.Where(s => s.Id > 0).Select(s => s.Id).ToHashSet();
             foreach (var es in existing.Services.ToList())
             {
-                // Remove only manual services the user deleted; connected services stay (managed elsewhere).
-                if (es.Source == ServiceSource.Manual && !keepServiceIds.Contains(es.Id))
+                // All services loaded into the editor are represented in keepServiceIds. Removing
+                // missing rows also cleans up connected duplicates created by older app versions.
+                if (!keepServiceIds.Contains(es.Id))
                     db.Services.Remove(es);
             }
             foreach (var s in project.Services)
@@ -700,5 +922,68 @@
         await InvokeAsync(StateHasChanged);
         Snackbar.Add("Project saved", Severity.Success);
         await LoadAsync();
+    }
+
+    private static string ResourceKey(Service service)
+        => ResourceKey(service.CloudAccountId, service.ExternalResourceId);
+
+    private static string ResourceKey(int? accountId, string? externalId)
+        => $"{accountId?.ToString() ?? "none"}|{externalId?.Trim() ?? ""}";
+
+    private static void DeduplicateConnectedServices(Project project)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var connected = project.Services
+            .Where(service => service.Source == ServiceSource.Connected
+                              && service.CloudAccountId is not null
+                              && !string.IsNullOrWhiteSpace(service.ExternalResourceId))
+            .OrderBy(service => service.Id == 0 ? 1 : 0)
+            .ThenBy(service => service.Id)
+            .ToList();
+
+        foreach (var service in connected)
+            if (!seen.Add(ResourceKey(service)))
+                project.Services.Remove(service);
+    }
+
+    private static async Task<string?> FindConnectedResourceConflictAsync(
+        AppDbContext db,
+        Project project)
+    {
+        var candidates = project.Services
+            .Where(service => service.Source == ServiceSource.Connected
+                              && service.CloudAccountId is not null
+                              && !string.IsNullOrWhiteSpace(service.ExternalResourceId))
+            .ToList();
+        if (candidates.Count == 0) return null;
+
+        var accountIds = candidates.Select(service => service.CloudAccountId!.Value).Distinct().ToArray();
+        var externalIds = candidates.Select(service => service.ExternalResourceId!).Distinct().ToArray();
+        var candidateKeys = candidates.Select(ResourceKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var persisted = await db.Services
+            .AsNoTracking()
+            .Where(service => service.Source == ServiceSource.Connected
+                              && service.CloudAccountId != null
+                              && accountIds.Contains(service.CloudAccountId.Value)
+                              && service.ExternalResourceId != null
+                              && externalIds.Contains(service.ExternalResourceId))
+            .Select(service => new
+            {
+                service.CloudAccountId,
+                service.ExternalResourceId,
+                service.ProjectId,
+                ProjectName = service.Project.Name,
+                service.Name
+            })
+            .ToListAsync();
+
+        var conflict = persisted.FirstOrDefault(service =>
+            service.ProjectId != project.Id
+            && candidateKeys.Contains(ResourceKey(service.CloudAccountId, service.ExternalResourceId)));
+
+        return conflict is null
+            ? null
+            : $"{conflict.Name} is already assigned to project “{conflict.ProjectName}”. A cloud resource can belong to only one project.";
     }
 }
