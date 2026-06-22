@@ -1,5 +1,6 @@
 @page "/dashboard"
 @inject IDbContextFactory<AppDbContext> DbFactory
+@inject DashboardAnalytics Analytics
 @inject CostSyncService CostSync
 @inject ISnackbar Snackbar
 
@@ -7,229 +8,281 @@
     <div class="fx-page-heading">
         <div class="fx-eyebrow">Cost intelligence</div>
         <h1 class="fx-page-title">Cloud command center</h1>
-        <p class="fx-page-sub">@_lastSynced</p>
+        <p class="fx-page-sub">@(_d?.LastSyncedLabel ?? "Loading…")</p>
     </div>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
-               Class="fx-page-action"
-               StartIcon="@Icons.Material.Filled.Sync"
-               Disabled="_syncing"
-               OnClick="RefreshAsync">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="fx-page-action"
+               StartIcon="@Icons.Material.Filled.Sync" Disabled="_syncing" OnClick="RefreshAsync">
         @(_syncing ? "Syncing costs…" : "Sync cloud costs")
     </MudButton>
 </section>
 
-<section class="fx-hero">
-    <div>
-        <div class="fx-hero-eyebrow">
-            <span class="fx-live-dot"></span>
-            Multi-cloud overview
+@if (_d is not null)
+{
+    <div class="fx-dashboard-stack">
+    <!-- KPI row -->
+    <section class="fx-kpi-grid">
+        <div class="fx-card fx-kpi fx-card-interactive">
+            <div>
+                <div class="fx-kpi-label">Spend in range</div>
+                <div class="fx-kpi-value">@_d.TotalSpend.ToString("C0")</div>
+            </div>
+            <div class="fx-kpi-icon"><MudIcon Icon="@Icons.Material.Filled.Payments" /></div>
+            <div class="fx-kpi-foot"><strong>@_d.DataMode</strong><span>across selected services</span></div>
         </div>
-        <h1>See the spend signal before it becomes noise.</h1>
-        <p>
-            One calm view across AWS, Azure and GCP. Track current exposure, compare it
-            with project budgets and keep connected services inside their guardrails.
-        </p>
-    </div>
-    <div class="fx-hero-side" aria-hidden="true">
-        <div class="fx-orbit-visual">
-            <div class="fx-orbit-core"><MudIcon Icon="@Icons.Material.Filled.AutoGraph" Size="Size.Large" /></div>
-        </div>
-    </div>
-</section>
 
-<section class="fx-kpi-grid">
-    <div class="fx-card fx-kpi fx-card-interactive">
-        <div>
-            <div class="fx-kpi-label">Spend in range</div>
-            <div class="fx-kpi-value">@_totalSpend.ToString("C0")</div>
+        <div class="fx-card fx-kpi fx-card-interactive">
+            <div>
+                <div class="fx-kpi-label">Projected month-end</div>
+                <div class="fx-kpi-value">@_d.ProjectedMonthEnd.ToString("C0")</div>
+            </div>
+            <div class="fx-kpi-icon"><MudIcon Icon="@Icons.Material.Filled.TrendingUp" /></div>
+            <div class="fx-kpi-foot">
+                <strong class="@(_d.ProjectedMonthEnd > _d.MonthlyBudget && _d.MonthlyBudget > 0 ? "fx-text-danger" : "")">
+                    @(_d.MonthlyBudget > 0 ? _d.ProjectedMonthEnd.ToString("C0") + " vs " + _d.MonthlyBudget.ToString("C0") : "no budget set")
+                </strong>
+                <span>forecast at current run-rate</span>
+            </div>
         </div>
-        <div class="fx-kpi-icon"><MudIcon Icon="@Icons.Material.Filled.Payments" /></div>
-        <div class="fx-kpi-foot">
-            <strong>@_dataModeLabel</strong>
-            <span>across selected services</span>
-        </div>
-    </div>
 
-    <div class="fx-card fx-kpi fx-card-interactive">
-        <div>
-            <div class="fx-kpi-label">Budget exposure</div>
-            <div class="fx-kpi-value">@_budgetUsed%</div>
+        <div class="fx-card fx-kpi fx-card-interactive">
+            <div>
+                <div class="fx-kpi-label">Budget runway</div>
+                <div class="fx-kpi-value">
+                    @(_d.DaysUntilBudgetExhausted is { } dx ? (dx <= 0 ? "Over" : $"{dx} days") : "On track")
+                </div>
+            </div>
+            <div class="fx-kpi-icon"><MudIcon Icon="@Icons.Material.Filled.Speed" /></div>
+            <div class="fx-kpi-foot">
+                <strong>@_d.MonthToDateSpend.ToString("C0")</strong>
+                <span>spent of @_d.MonthlyBudget.ToString("C0") this month</span>
+            </div>
         </div>
-        <div class="fx-kpi-icon"><MudIcon Icon="@Icons.Material.Filled.Speed" /></div>
-        <div class="fx-kpi-foot">
-            <strong>@_budgetSpend.ToString("C0")</strong>
-            <span>of @_budgetTotal.ToString("C0") allocated</span>
-        </div>
-    </div>
 
-    <div class="fx-card fx-kpi fx-card-interactive">
-        <div>
-            <div class="fx-kpi-label">Projects in view</div>
-            <div class="fx-kpi-value">@_projectCount</div>
+        <div class="fx-card fx-kpi fx-card-interactive">
+            <div>
+                <div class="fx-kpi-label">Month over month</div>
+                <div class="fx-kpi-value @(_d.MoMChangePercent > 0 ? "fx-text-danger" : "fx-text-ok")">
+                    @(_d.MoMChangePercent >= 0 ? "+" : "")@_d.MoMChangePercent.ToString("0.#")%
+                </div>
+            </div>
+            <div class="fx-kpi-icon">
+                <MudIcon Icon="@(_d.MoMChangePercent >= 0 ? Icons.Material.Filled.NorthEast : Icons.Material.Filled.SouthEast)" />
+            </div>
+            <div class="fx-kpi-foot"><strong>vs same point last month</strong><span>@_d.PrevMonthSpend.ToString("C0") then</span></div>
         </div>
-        <div class="fx-kpi-icon"><MudIcon Icon="@Icons.Material.Filled.FolderCopy" /></div>
-        <div class="fx-kpi-foot">
-            <strong>@_budgetRows.Count</strong>
-            <span>active budget guardrails</span>
-        </div>
-    </div>
+    </section>
 
-    <div class="fx-card fx-kpi fx-card-interactive">
-        <div>
-            <div class="fx-kpi-label">Cloud footprint</div>
-            <div class="fx-kpi-value">@_connectedServiceCount</div>
-        </div>
-        <div class="fx-kpi-icon"><MudIcon Icon="@Icons.Material.Filled.Hub" /></div>
-        <div class="fx-kpi-foot">
-            <strong>@_providerCount provider@(_providerCount == 1 ? "" : "s")</strong>
-            <span>represented in this view</span>
-        </div>
-    </div>
-</section>
-
-<section class="fx-card fx-filter-bar @(_filtersOpen ? "is-open" : "is-collapsed")">
-    <button type="button" class="fx-filter-toggle" @onclick="@(() => _filtersOpen = !_filtersOpen)">
-        <span class="fx-filter-label">
-            <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" />
-            Refine view
-        </span>
-        <span class="fx-filter-summary">@FilterSummary</span>
-        <MudIcon Icon="@Icons.Material.Filled.ExpandMore" Size="Size.Small" Class="fx-filter-chevron" />
-    </button>
-
-    <div class="fx-filter-controls">
-        <MudSelect T="string" @bind-Value="_provider" Label="Provider" Dense="true" Class="fx-filter-control">
-            <MudSelectItem Value="@("All")">All providers</MudSelectItem>
-            <MudSelectItem Value="@("Aws")">AWS</MudSelectItem>
-            <MudSelectItem Value="@("Azure")">Azure</MudSelectItem>
-            <MudSelectItem Value="@("Gcp")">GCP</MudSelectItem>
-        </MudSelect>
-        <MudSelect T="int?" @bind-Value="_clientId" Label="Client" Dense="true" Class="fx-filter-control">
-            @foreach (var client in _clients)
-            {
-                <MudSelectItem T="int?" Value="@client.Id">@client.Name</MudSelectItem>
-            }
-        </MudSelect>
-        <MudDatePicker @bind-Date="_from" Label="From" Class="fx-filter-control" />
-        <MudDatePicker @bind-Date="_to" Label="To" Class="fx-filter-control" />
-        <MudSpacer />
-        <MudButton Class="fx-filter-submit" Variant="Variant.Outlined" Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Check"
-                   OnClick="LoadAsync">
-            Apply filters
-        </MudButton>
-    </div>
-</section>
-
-<section class="fx-card fx-chart-card fx-budget-section">
-    <div class="fx-card-head">
-        <div>
-            <h2 class="fx-card-title">Budget guardrails</h2>
-            <div class="fx-card-kicker">Current exposure by project</div>
-        </div>
-        <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.Shield" Size="Size.Small" /></div>
-    </div>
-    @if (_budgetRows.Any())
-    {
-        <table class="fx-budget-table">
-            <thead>
-                <tr><th>Project</th><th>Trend</th><th>Budget</th><th>Spend</th><th>Used</th></tr>
-            </thead>
-            <tbody>
-                @foreach (var row in _budgetRows)
+    <!-- Filters (sticky + accordion on mobile) -->
+    <section class="fx-card fx-filter-bar @(_filtersOpen ? "is-open" : "is-collapsed")">
+        <button type="button" class="fx-filter-toggle" @onclick="@(() => _filtersOpen = !_filtersOpen)">
+            <span class="fx-filter-label"><MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" /> Refine view</span>
+            <span class="fx-filter-summary">@FilterSummary</span>
+            <MudIcon Icon="@Icons.Material.Filled.ExpandMore" Size="Size.Small" Class="fx-filter-chevron" />
+        </button>
+        <div class="fx-filter-controls">
+            <MudSelect T="string" @bind-Value="_provider" Label="Provider" Dense="true" Class="fx-filter-control">
+                <MudSelectItem Value="@("All")">All providers</MudSelectItem>
+                <MudSelectItem Value="@("Aws")">AWS</MudSelectItem>
+                <MudSelectItem Value="@("Azure")">Azure</MudSelectItem>
+                <MudSelectItem Value="@("Gcp")">GCP</MudSelectItem>
+            </MudSelect>
+            <MudSelect T="int?" @bind-Value="_clientId" Label="Client" Dense="true" Class="fx-filter-control">
+                @foreach (var client in _clients)
                 {
-                    <tr>
-                        <td data-label="Project">@row.Project</td>
-                        <td data-label="Trend">
-                            @if (_budgetSpark.TryGetValue(row.ProjectId, out var series) && series.Count > 1)
-                            {
-                                <FxSparkline Values="series"
-                                             Color="@(row.Pct >= 100 ? "#ef4444" : row.Pct >= 80 ? "#f59e0b" : "#10b981")" />
-                            }
-                            else
-                            {
-                                <span class="fx-spark-empty">—</span>
-                            }
-                        </td>
-                        <td data-label="Budget">@row.Budget.ToString("C0")</td>
-                        <td data-label="Spend">@row.Spend.ToString("C0")</td>
-                        <td data-label="Used">
-                            <div class="fx-budget-percent">
-                                <MudProgressLinear Color="@(row.Pct >= 100 ? Color.Error : row.Pct >= 80 ? Color.Warning : Color.Success)"
-                                                   Value="@Math.Min(row.Pct, 100)" />
-                                <span>@row.Pct%</span>
-                            </div>
-                        </td>
-                    </tr>
+                    <MudSelectItem T="int?" Value="@client.Id">@client.Name</MudSelectItem>
                 }
-            </tbody>
-        </table>
-    }
-    else
-    {
-        <div class="fx-chart-wrap"><Empty /></div>
-    }
-</section>
+            </MudSelect>
+            <MudDatePicker @bind-Date="_from" Label="From" Class="fx-filter-control" />
+            <MudDatePicker @bind-Date="_to" Label="To" Class="fx-filter-control" />
+            <MudSpacer />
+            <MudButton Class="fx-filter-submit" Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Check" OnClick="LoadAsync">Apply filters</MudButton>
+        </div>
+    </section>
 
-<section class="fx-dashboard-grid">
-    <div class="fx-card fx-chart-card">
+    <!-- HERO: budget pacing -->
+    <section class="fx-card fx-chart-card fx-budget-section">
         <div class="fx-card-head">
             <div>
-                <h2 class="fx-card-title">Provider mix</h2>
-                <div class="fx-card-kicker">How spend is distributed across clouds</div>
+                <h2 class="fx-card-title">Budget pacing</h2>
+                <div class="fx-card-kicker">
+                    Spend so far vs the on-budget pace (spending your whole budget evenly across the month).
+                    Below the line = under budget — good.
+                </div>
             </div>
-            <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.DonutLarge" Size="Size.Small" /></div>
+            <div class="fx-health-chips">
+                @if (_d.MonthlyBudget > 0)
+                {
+                    <span class="fx-health @(_d.PaceVariance <= 0 ? "on" : "over")">
+                        @(_d.PaceVariance <= 0
+                            ? $"{Math.Abs(_d.PaceVariance).ToString("C0")} under pace"
+                            : $"{_d.PaceVariance.ToString("C0")} over pace")
+                    </span>
+                }
+                <span class="fx-health on">@_d.BudgetsOnTrack on track</span>
+                <span class="fx-health near">@_d.BudgetsApproaching approaching</span>
+                <span class="fx-health over">@_d.BudgetsOver over</span>
+            </div>
         </div>
-        <div class="fx-chart-wrap">
-            @if (_byProvider.Any())
-            {
-                <FxDonutChart Data="_byProvider" />
-            }
-            else
-            {
-                <Empty />
-            }
-        </div>
-    </div>
+        @if (_d.Pacing.Count > 0 && _d.MonthlyBudget > 0)
+        {
+            <FxPacingChart Points="_d.Pacing" Budget="_d.MonthlyBudget" />
+        }
+        else
+        {
+            <div class="fx-chart-wrap"><Empty Text="Set a project budget and sync costs to see pacing." /></div>
+        }
+    </section>
 
-    <div class="fx-card fx-chart-card">
+    <!-- Budget guardrails table -->
+    <section class="fx-card fx-chart-card fx-budget-section">
         <div class="fx-card-head">
             <div>
-                <h2 class="fx-card-title">Top cost drivers</h2>
-                <div class="fx-card-kicker">Services with the strongest spend signal</div>
+                <h2 class="fx-card-title">Budget guardrails</h2>
+                <div class="fx-card-kicker">Current exposure by project</div>
             </div>
-            <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.Leaderboard" Size="Size.Small" /></div>
+            <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.Shield" Size="Size.Small" /></div>
         </div>
-        <div class="fx-chart-wrap">
-            @if (_topServices.Any())
-            {
-                <FxBarChart Data="_topServices" />
-            }
-            else
-            {
-                <Empty />
-            }
-        </div>
-    </div>
-</section>
+        @if (_d.Budgets.Count > 0)
+        {
+            <table class="fx-budget-table">
+                <thead><tr><th>Project</th><th>Trend</th><th>Budget</th><th>Spend</th><th>Used</th></tr></thead>
+                <tbody>
+                    @foreach (var row in _d.Budgets)
+                    {
+                        <tr>
+                            <td data-label="Project">@row.Project</td>
+                            <td data-label="Trend">
+                                @if (_d.ProjectSparklines.TryGetValue(row.ProjectId, out var series) && series.Count > 1)
+                                {
+                                    <FxSparkline Values="series" Color="@(row.Percent >= 100 ? "#ef4444" : row.Percent >= 80 ? "#f59e0b" : "#10b981")" />
+                                }
+                                else { <span class="fx-spark-empty">—</span> }
+                            </td>
+                            <td data-label="Budget">@row.Budget.ToString("C0")</td>
+                            <td data-label="Spend">@row.Spend.ToString("C0")</td>
+                            <td data-label="Used">
+                                <div class="fx-budget-percent">
+                                    <MudProgressLinear Color="@(row.Percent >= 100 ? Color.Error : row.Percent >= 80 ? Color.Warning : Color.Success)"
+                                                       Value="@Math.Min(row.Percent, 100)" />
+                                    <span>@row.Percent%</span>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else { <div class="fx-chart-wrap"><Empty /></div> }
+    </section>
 
-<section class="fx-card fx-chart-card fx-trend-card fx-trend-bottom">
-    <div class="fx-card-head">
-        <div>
-            <h2 class="fx-card-title">Spend trend</h2>
-            <div class="fx-card-kicker">Daily spend across the selected range</div>
+    <!-- Provider mix + Top cost drivers -->
+    <section class="fx-dashboard-grid">
+        <div class="fx-card fx-chart-card">
+            <div class="fx-card-head">
+                <div><h2 class="fx-card-title">Provider mix</h2><div class="fx-card-kicker">How spend is distributed across clouds</div></div>
+                <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.DonutLarge" Size="Size.Small" /></div>
+            </div>
+            <div class="fx-chart-wrap">
+                @if (_d.ByProvider.Any()) { <FxDonutChart Data="_d.ByProvider" /> } else { <Empty /> }
+            </div>
         </div>
-        <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.ShowChart" Size="Size.Small" /></div>
+
+        <div class="fx-card fx-chart-card">
+            <div class="fx-card-head">
+                <div><h2 class="fx-card-title">Top cost drivers</h2><div class="fx-card-kicker">Services with the strongest spend signal</div></div>
+                <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.Leaderboard" Size="Size.Small" /></div>
+            </div>
+            <div class="fx-chart-wrap">
+                @if (_d.TopServices.Any()) { <FxBarChart Data="_d.TopServices" /> } else { <Empty /> }
+            </div>
+        </div>
+    </section>
+
+    <!-- Top movers + Cost composition -->
+    <section class="fx-dashboard-grid">
+        <div class="fx-card fx-chart-card">
+            <div class="fx-card-head">
+                <div><h2 class="fx-card-title">Top movers</h2><div class="fx-card-kicker">Biggest changes vs the previous period</div></div>
+                <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.SwapVert" Size="Size.Small" /></div>
+            </div>
+            <FxDeltaBars Items="_d.TopMovers" />
+        </div>
+
+        <div class="fx-card fx-chart-card">
+            <div class="fx-card-head">
+                <div><h2 class="fx-card-title">Cost composition over time</h2><div class="fx-card-kicker">Daily spend by provider</div></div>
+                <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.StackedLineChart" Size="Size.Small" /></div>
+            </div>
+            @if (_d.Composition.Count > 1) { <FxStackedColumns Days="_d.Composition" Providers="_d.CompositionProviders" /> }
+            else { <div class="fx-chart-wrap"><Empty Text="No synced daily data in range." /></div> }
+        </div>
+    </section>
+
+    <!-- Project budgets: spend vs cap (full width) -->
+    <section class="fx-card fx-chart-card">
+        <div class="fx-card-head">
+            <div><h2 class="fx-card-title">Project budgets</h2><div class="fx-card-kicker">Spend so far vs each project's budget cap</div></div>
+            <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" /></div>
+        </div>
+        @if (_d.Budgets.Count > 0)
+        {
+            <div class="fx-pbud">
+                @foreach (var b in _d.Budgets.OrderByDescending(x => x.Percent))
+                {
+                    <div class="fx-pbud-row">
+                        <div class="fx-pbud-head">
+                            <span class="fx-pbud-name">@b.Project</span>
+                            <span class="fx-pbud-nums"><strong>@b.Spend.ToString("C0")</strong> of @b.Budget.ToString("C0")</span>
+                        </div>
+                        <div class="fx-pbud-track">
+                            <div class="fx-pbud-fill @(b.Percent >= 100 ? "over" : b.Percent >= 80 ? "near" : "ok")"
+                                 style="width:@Math.Min(b.Percent, 100)%"></div>
+                        </div>
+                        <div class="fx-pbud-foot">
+                            <span class="fx-pbud-pct @(b.Percent >= 100 ? "over" : b.Percent >= 80 ? "near" : "ok")">@b.Percent% used</span>
+                            <span>@((b.Budget - b.Spend).ToString("C0")) @(b.Budget - b.Spend >= 0 ? "left" : "over")</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else { <div class="fx-chart-wrap"><Empty Text="No budgets set. Add one on a project to track its cap here." /></div> }
+    </section>
+
+    <!-- Treemap -->
+    <section class="fx-card fx-chart-card">
+        <div class="fx-card-head">
+            <div><h2 class="fx-card-title">Cost map</h2><div class="fx-card-kicker">Each bar is a service (height = spend), grouped by project; the dot marks its provider (orange AWS · blue Azure · red GCP)</div></div>
+            <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Small" /></div>
+        </div>
+        <FxColumnMap Leaves="_d.Treemap" />
+    </section>
+
+    <!-- Spend trend (bottom) with anomaly flags -->
+    <section class="fx-card fx-chart-card fx-trend-bottom">
+        <div class="fx-card-head">
+            <div>
+                <h2 class="fx-card-title">Spend trend</h2>
+                <div class="fx-card-kicker">
+                    Daily spend across the selected range
+                    @if (_d.SyncedActualTotal + _d.EstimatedTotal > 0)
+                    {
+                        <text> · @((int)Math.Round((double)_d.SyncedActualTotal / (double)(_d.SyncedActualTotal + _d.EstimatedTotal) * 100))% synced, rest estimated</text>
+                    }
+                </div>
+            </div>
+            <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.ShowChart" Size="Size.Small" /></div>
+        </div>
+        @if (_d.SpendTrend.Count > 1) { <FxAreaChart Points="_d.SpendTrend" AnomalyIndices="_d.AnomalyIndices" /> }
+        else { <div class="fx-chart-wrap"><Empty Text="No daily cost history in range yet — sync a cloud account to populate the trend." /></div> }
+    </section>
     </div>
-    @if (_trend.Count > 1)
-    {
-        <FxAreaChart Points="_trend" />
-    }
-    else
-    {
-        <div class="fx-chart-wrap"><Empty Text="No daily cost history in range yet — sync a cloud account to populate the trend." /></div>
-    }
-</section>
+}
+else
+{
+    <div class="fx-card"><div class="fx-chart-wrap"><Empty Text="Loading dashboard…" /></div></div>
+}
 
 <div class="fx-ad-slot">Reserved for a privacy-conscious banner on free plans</div>
 
@@ -238,10 +291,11 @@
     private int? _clientId;
     private DateTime? _from = DateTime.Today.AddDays(-30);
     private DateTime? _to = DateTime.Today;
-    private string _lastSynced = "Showing manual estimates — connect a cloud account for synced spend.";
-    private string _dataModeLabel = "Estimated";
     private bool _syncing;
-    private bool _filtersOpen;   // collapsed by default on small screens; always shown on desktop via CSS
+    private bool _filtersOpen;
+
+    private List<Client> _clients = new();
+    private DashboardData? _d;
 
     private string FilterSummary
     {
@@ -253,143 +307,20 @@
         }
     }
 
-    private decimal _totalSpend;
-    private decimal _budgetTotal;
-    private decimal _budgetSpend;
-    private int _budgetUsed;
-    private int _projectCount;
-    private int _connectedServiceCount;
-    private int _providerCount;
-
-    private List<Client> _clients = new();
-    private Dictionary<string, double> _byProvider = new();
-    private Dictionary<string, double> _topServices = new();
-    private List<BudgetRow> _budgetRows = new();
-    private List<KeyValuePair<string, double>> _trend = new();
-    private Dictionary<int, IReadOnlyList<double>> _budgetSpark = new();
-
-    private record BudgetRow(int ProjectId, string Project, decimal Budget, decimal Spend, int Pct);
-
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        _clients = await db.Clients.OrderBy(client => client.Name).ToListAsync();
+        _clients = await db.Clients.OrderBy(c => c.Name).ToListAsync();
         _clientId ??= _clients.FirstOrDefault()?.Id;   // always keep one client selected
         await LoadAsync();
     }
 
     private async Task LoadAsync()
     {
-        await using var db = await DbFactory.CreateDbContextAsync();
-
         var from = DateOnly.FromDateTime((_from ?? DateTime.Today.AddDays(-30)).Date);
         var to = DateOnly.FromDateTime((_to ?? DateTime.Today).Date);
-        if (to < from)
-            (from, to) = (to, from);
-
-        var services = db.Services.AsQueryable();
-        if (_provider != "All" && Enum.TryParse<CloudProvider>(_provider, out var provider))
-            services = services.Where(service => service.Provider == provider);
-        if (_clientId is not null)
-            services = services.Where(service => service.Project.ClientId == _clientId);
-
-        var list = await services.Include(service => service.Project).ToListAsync();
-        var serviceIds = list.Select(service => service.Id).ToArray();
-        var costs = serviceIds.Length == 0
-            ? new List<CostRecord>()
-            : await db.CostRecords
-                .Where(cost => serviceIds.Contains(cost.ServiceId) && cost.Date >= from && cost.Date <= to)
-                .ToListAsync();
-        var actualByService = costs
-            .GroupBy(cost => cost.ServiceId)
-            .ToDictionary(group => group.Key, group => group.Sum(cost => cost.Amount));
-
-        var accountIds = list
-            .Where(service => service.CloudAccountId is not null)
-            .Select(service => service.CloudAccountId!.Value)
-            .Distinct()
-            .ToArray();
-        var syncedAccounts = accountIds.Length == 0
-            ? new Dictionary<int, DateTimeOffset>()
-            : await db.CloudAccounts
-                .Where(account => accountIds.Contains(account.Id) && account.LastSyncedUtc != null)
-                .ToDictionaryAsync(account => account.Id, account => account.LastSyncedUtc!.Value);
-
-        decimal SpendFor(Service service)
-        {
-            if (actualByService.TryGetValue(service.Id, out var actual))
-                return actual;
-
-            if (service.Source == ServiceSource.Connected
-                && service.CloudAccountId is { } accountId
-                && syncedAccounts.ContainsKey(accountId))
-                return 0m;
-
-            return service.EstimatedCost;
-        }
-
-        _byProvider = list
-            .GroupBy(service => service.Provider.ToString())
-            .ToDictionary(group => group.Key, group => (double)group.Sum(SpendFor));
-
-        _topServices = list
-            .GroupBy(service => service.Name)
-            .Select(group => new { Name = group.Key, Spend = group.Sum(SpendFor) })
-            .OrderByDescending(item => item.Spend)
-            .Take(6)
-            .ToDictionary(item => item.Name, item => (double)item.Spend);
-
-        var budgetQuery = db.Budgets.Include(budget => budget.Project).AsQueryable();
-        if (_clientId is not null)
-            budgetQuery = budgetQuery.Where(budget => budget.Project.ClientId == _clientId);
-        var budgets = await budgetQuery.ToListAsync();
-
-        _budgetRows = budgets.Select(budget =>
-        {
-            var spend = list.Where(service => service.ProjectId == budget.ProjectId).Sum(SpendFor);
-            var percent = budget.Amount > 0 ? (int)Math.Round(spend / budget.Amount * 100) : 0;
-            return new BudgetRow(budget.ProjectId, budget.Project.Name, budget.Amount, spend, percent);
-        }).ToList();
-
-        // Spend trend: daily totals across the range (from synced cost records).
-        _trend = costs
-            .GroupBy(cost => cost.Date)
-            .OrderBy(group => group.Key)
-            .Select(group => new KeyValuePair<string, double>(
-                group.Key.ToString("MMM d"), (double)group.Sum(cost => cost.Amount)))
-            .ToList();
-
-        // Per-project mini trend (one daily series per project) for the budget table sparklines.
-        var serviceToProject = list.ToDictionary(service => service.Id, service => service.ProjectId);
-        _budgetSpark = costs
-            .GroupBy(cost => serviceToProject.TryGetValue(cost.ServiceId, out var pid) ? pid : -1)
-            .Where(group => group.Key > 0)
-            .ToDictionary(
-                group => group.Key,
-                group => (IReadOnlyList<double>)group
-                    .GroupBy(cost => cost.Date)
-                    .OrderBy(byDate => byDate.Key)
-                    .Select(byDate => (double)byDate.Sum(cost => cost.Amount))
-                    .ToList());
-
-        _totalSpend = list.Sum(SpendFor);
-        _budgetTotal = _budgetRows.Sum(row => row.Budget);
-        _budgetSpend = _budgetRows.Sum(row => row.Spend);
-        _budgetUsed = _budgetTotal > 0 ? (int)Math.Round(_budgetSpend / _budgetTotal * 100) : 0;
-        _projectCount = list.Select(service => service.ProjectId).Distinct().Count();
-        _connectedServiceCount = list.Count(service => service.Source == ServiceSource.Connected);
-        _providerCount = list.Select(service => service.Provider).Distinct().Count();
-        _dataModeLabel = costs.Count > 0 ? "Synced actuals" : "Estimated";
-
-        if (syncedAccounts.Count > 0)
-        {
-            var latest = syncedAccounts.Values.Max();
-            _lastSynced = $"Cloud costs last synced {RelativeTime(latest)}. Unsynced manual services retain their estimates.";
-        }
-        else
-        {
-            _lastSynced = "Showing manual estimates — connect and sync a cloud account for actual spend.";
-        }
+        _d = await Analytics.GetAsync(new DashboardQuery(_provider, _clientId, from, to));
+        StateHasChanged();
     }
 
     private async Task RefreshAsync()
@@ -411,14 +342,5 @@
         {
             _syncing = false;
         }
-    }
-
-    private static string RelativeTime(DateTimeOffset value)
-    {
-        var age = DateTimeOffset.UtcNow - value;
-        if (age < TimeSpan.FromMinutes(1)) return "just now";
-        if (age < TimeSpan.FromHours(1)) return $"{Math.Max(1, (int)age.TotalMinutes)} min ago";
-        if (age < TimeSpan.FromDays(1)) return $"{Math.Max(1, (int)age.TotalHours)} hr ago";
-        return $"{Math.Max(1, (int)age.TotalDays)} day(s) ago";
     }
 }

@@ -51,6 +51,9 @@ public static class ServicesServiceCollectionExtensions
         services.AddScoped<BudgetEvaluator>();
         services.AddScoped<ReminderEvaluator>();
 
+        // Dashboard analytics (pacing, forecast, movers, composition, treemap, …).
+        services.AddScoped<Analytics.DashboardAnalytics>();
+
         return services;
     }
 

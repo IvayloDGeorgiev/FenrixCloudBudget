@@ -1,0 +1,115 @@
+@using System.Globalization
+@using FenrixCloudBudget.Services.Analytics
+@*
+   Daily spend as stacked columns (one column per day, segments = providers). Much clearer than
+   a smoothed area: each bar is a day's total, split by provider. Bars grow in; hover shows the
+   day's breakdown.
+*@
+
+<div class="fx-sc">
+    <div class="fx-sc-plot @(_mounted ? "is-revealed" : "")">
+        @for (var i = 0; i < _days.Count; i++)
+        {
+            var d = _days[i];
+            var idx = i;
+            var hPct = _max > 0 ? d.Total / _max * 100 : 0;
+            <div class="fx-sc-col @(_hover == idx ? "is-hover" : "")"
+                 @onmouseover="@(() => _hover = idx)" @onmouseout="@(() => _hover = null)">
+                <div class="fx-sc-tip">
+                    <strong>@d.Label</strong>
+                    @foreach (var p in d.Parts)
+                    {
+                        <span><i style="background:@Color(p.Provider)"></i>@p.Provider <b>@Money(p.Value)</b></span>
+                    }
+                    <span class="fx-sc-tip-total">Total @Money(d.Total)</span>
+                </div>
+                <div class="fx-sc-stack" style="height:@(_mounted ? F(hPct) : "0")%;transition-delay:@F(idx * 0.012)s">
+                    @foreach (var p in d.Parts)
+                    {
+                        <div class="fx-sc-seg" style="flex-grow:@F(p.Value);background:@Color(p.Provider)"></div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+    <div class="fx-sc-legend">
+        @foreach (var p in Providers)
+        {
+            <span class="fx-sc-leg @(_hover is not null && !_days[_hover.Value].Parts.Any(x => x.Provider == p) ? "is-off" : "")">
+                <i style="background:@Color(p)"></i> @p
+            </span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<CompositionDay> Days { get; set; } = Array.Empty<CompositionDay>();
+    [Parameter] public IReadOnlyList<string> Providers { get; set; } = Array.Empty<string>();
+    [Parameter] public Func<double, string>? ValueFormat { get; set; }
+
+    private bool _mounted;
+    private int? _hover;
+    private double _max;
+    private List<Day> _days = new();
+    private record Part(string Provider, double Value);
+    private record Day(string Label, double Total, List<Part> Parts);
+
+    protected override void OnParametersSet()
+    {
+        _days = Days.Select(d =>
+        {
+            var parts = Providers
+                .Select(p => new Part(p, d.ByProvider.GetValueOrDefault(p)))
+                .Where(p => p.Value > 0)
+                .ToList();
+            return new Day(d.Label, parts.Sum(p => p.Value), parts);
+        }).ToList();
+        _max = _days.Count > 0 ? Math.Max(1, _days.Max(d => d.Total)) : 1;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_mounted) { _mounted = true; await Task.Delay(60); StateHasChanged(); }
+    }
+
+    private static string Color(string provider) => provider.ToLowerInvariant() switch
+    {
+        "aws" => "var(--fx-aws)",
+        "azure" => "var(--fx-azure)",
+        "gcp" => "var(--fx-gcp)",
+        _ => "var(--fx-primary)"
+    };
+
+    private string Money(double v) => (ValueFormat ?? (x => x.ToString("C0")))(v);
+    private static string F(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+}
+
+<style>
+    .fx-sc { width: 100%; }
+    .fx-sc-plot { display: flex; align-items: flex-end; gap: 3px; height: 230px; padding-top: 6px; }
+    .fx-sc-col { position: relative; flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
+    .fx-sc-stack {
+        width: 100%; display: flex; flex-direction: column-reverse; border-radius: 5px 5px 0 0; overflow: hidden;
+        transition: height .8s cubic-bezier(.22,1,.36,1);
+    }
+    .fx-sc-seg { width: 100%; transition: filter .15s ease; }
+    .fx-sc-col.is-hover .fx-sc-stack { filter: brightness(1.1); }
+    .fx-sc-col:not(.is-hover) .fx-sc-stack { opacity: .92; }
+
+    .fx-sc-tip {
+        position: absolute; bottom: 100%; left: 50%; transform: translate(-50%, -6px);
+        background: var(--fx-text); color: var(--fx-surface); padding: 8px 10px; border-radius: 10px;
+        font-size: 11px; white-space: nowrap; display: none; flex-direction: column; gap: 3px; z-index: 6;
+        box-shadow: var(--fx-shadow);
+    }
+    .fx-sc-col.is-hover .fx-sc-tip { display: flex; }
+    .fx-sc-tip span { display: flex; align-items: center; gap: 6px; }
+    .fx-sc-tip i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+    .fx-sc-tip b { margin-left: auto; }
+    .fx-sc-tip-total { border-top: 1px solid rgba(255,255,255,.15); margin-top: 2px; padding-top: 3px; font-weight: 700; }
+
+    .fx-sc-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--fx-text-muted); }
+    .fx-sc-leg { display: inline-flex; align-items: center; gap: 6px; transition: opacity .15s ease; }
+    .fx-sc-leg.is-off { opacity: .35; }
+    .fx-sc-leg i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+</style>

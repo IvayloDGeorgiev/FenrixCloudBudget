@@ -1,0 +1,112 @@
+@using System.Globalization
+@using FenrixCloudBudget.Services.Analytics
+@*
+   Top movers as a change "leaderboard": a direction badge, the service name with a
+   was → now line, a magnitude bar (relative to the biggest mover) and a bold delta pill
+   with the % change. Increases read red, decreases green. Rows animate in.
+*@
+
+<div class="fx-mv @(_mounted ? "is-revealed" : "")">
+    @if (_items.Count == 0)
+    {
+        <div class="fx-mv-empty">
+            <MudIcon Icon="@Icons.Material.Filled.TrendingFlat" Size="Size.Small" />
+            No notable changes vs the previous period.
+        </div>
+    }
+    else
+    {
+        @for (var i = 0; i < _items.Count; i++)
+        {
+            var m = _items[i];
+            var up = m.Delta >= 0;
+            var pct = _max > 0 ? Math.Abs(m.Delta) / _max * 100 : 0;
+            <div class="fx-mv-row" style="--d:@F(i * 0.06)s">
+                <div class="fx-mv-badge @(up ? "up" : "down")">@(up ? "▲" : "▼")</div>
+                <div class="fx-mv-main">
+                    <div class="fx-mv-top">
+                        <span class="fx-mv-name" title="@m.Label">@m.Label</span>
+                        <span class="fx-mv-delta @(up ? "up" : "down")">@(up ? "+" : "−")@Money(Math.Abs(m.Delta))</span>
+                    </div>
+                    <div class="fx-mv-track">
+                        <div class="fx-mv-fill @(up ? "up" : "down")" style="width:@(_mounted ? F(pct) : "0")%"></div>
+                    </div>
+                    <div class="fx-mv-sub">
+                        <span>@Money(m.Previous) → @Money(m.Current)</span>
+                        <span class="fx-mv-pct @(up ? "up" : "down")">@PctLabel(m)</span>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<MoverItem> Items { get; set; } = Array.Empty<MoverItem>();
+    [Parameter] public Func<double, string>? ValueFormat { get; set; }
+
+    private bool _mounted;
+    private List<MoverItem> _items = new();
+    private double _max;
+
+    protected override void OnParametersSet()
+    {
+        _items = Items.ToList();
+        _max = _items.Count > 0 ? _items.Max(i => Math.Abs(i.Delta)) : 0;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_mounted) { _mounted = true; await Task.Delay(60); StateHasChanged(); }
+    }
+
+    private string PctLabel(MoverItem m)
+    {
+        if (m.Previous <= 0) return "new";
+        var p = m.Delta / m.Previous * 100;
+        return (p >= 0 ? "+" : "") + p.ToString("0.#") + "%";
+    }
+
+    private string Money(double v) => (ValueFormat ?? (x => x.ToString("C0")))(v);
+    private static string F(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+}
+
+<style>
+    .fx-mv { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+    .fx-mv-empty { display: flex; align-items: center; gap: 8px; justify-content: center;
+        color: var(--fx-text-muted); font-size: 13px; padding: 22px 0; }
+
+    .fx-mv-row {
+        display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+        border: 1px solid var(--fx-border); border-radius: 14px; background: var(--fx-surface);
+        opacity: 0; transform: translateY(8px);
+        transition: opacity .45s ease var(--d,0s), transform .45s cubic-bezier(.22,1,.36,1) var(--d,0s), box-shadow .15s ease;
+    }
+    .fx-mv.is-revealed .fx-mv-row { opacity: 1; transform: translateY(0); }
+    .fx-mv-row:hover { box-shadow: var(--fx-shadow-sm); }
+
+    .fx-mv-badge {
+        flex-shrink: 0; width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center;
+        font-size: 13px; font-weight: 800;
+    }
+    .fx-mv-badge.up { background: color-mix(in srgb, var(--fx-danger) 16%, transparent); color: var(--fx-danger); }
+    .fx-mv-badge.down { background: color-mix(in srgb, var(--fx-ok) 16%, transparent); color: var(--fx-ok); }
+
+    .fx-mv-main { flex: 1; min-width: 0; }
+    .fx-mv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .fx-mv-name { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fx-mv-delta { font-size: 14px; font-weight: 800; white-space: nowrap; }
+    .fx-mv-delta.up { color: var(--fx-danger); }
+    .fx-mv-delta.down { color: var(--fx-ok); }
+
+    .fx-mv-track { height: 6px; border-radius: 999px; background: var(--fx-surface-2); margin: 7px 0 6px; overflow: hidden; }
+    .fx-mv-fill { height: 100%; border-radius: 999px; transition: width .9s cubic-bezier(.22,1,.36,1); }
+    .fx-mv-fill.up { background: linear-gradient(90deg, color-mix(in srgb, var(--fx-danger) 60%, transparent), var(--fx-danger)); }
+    .fx-mv-fill.down { background: linear-gradient(90deg, color-mix(in srgb, var(--fx-ok) 60%, transparent), var(--fx-ok)); }
+
+    .fx-mv-sub { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        font-size: 12px; color: var(--fx-text-muted); }
+    .fx-mv-pct { font-weight: 700; }
+    .fx-mv-pct.up { color: var(--fx-danger); }
+    .fx-mv-pct.down { color: var(--fx-ok); }
+</style>

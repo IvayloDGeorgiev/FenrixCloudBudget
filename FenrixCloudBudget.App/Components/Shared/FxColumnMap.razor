@@ -1,0 +1,107 @@
+@using System.Globalization
+@using FenrixCloudBudget.Services.Analytics
+@*
+   Cost map as vertical columns: one bar per service (height ∝ spend), grouped under their
+   project, theme-gradient fill (matching Top cost drivers) with a provider dot. Bars grow in
+   and lift on hover.
+*@
+
+<div class="fx-cmap">
+    @if (_groups.Count == 0)
+    {
+        <div class="fx-cmap-empty">No spend to map in range.</div>
+    }
+    else
+    {
+        <div class="fx-cmap-row @(_mounted ? "is-revealed" : "")">
+            @foreach (var g in _groups)
+            {
+                <div class="fx-cmap-group">
+                    <div class="fx-cmap-cols">
+                        @foreach (var s in g.Items)
+                        {
+                            var hPct = _max > 0 ? s.Value / _max * 100 : 0;
+                            <div class="fx-cmap-col" title="@($"{g.Name} · {s.Name}: {Money(s.Value)}")">
+                                <div class="fx-cmap-val">@Money(s.Value)</div>
+                                <div class="fx-cmap-track">
+                                    <div class="fx-cmap-bar" style="height:@(_mounted ? F(hPct) : "0")%">
+                                        <span class="fx-cmap-dot" style="background:@Color(s.Provider)"></span>
+                                    </div>
+                                </div>
+                                <div class="fx-cmap-name" title="@s.Name">@s.Name</div>
+                            </div>
+                        }
+                    </div>
+                    <div class="fx-cmap-grouplabel" title="@g.Name">@g.Name</div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<TreeLeaf> Leaves { get; set; } = Array.Empty<TreeLeaf>();
+    [Parameter] public Func<double, string>? ValueFormat { get; set; }
+
+    private bool _mounted;
+    private double _max;
+    private List<Group> _groups = new();
+    private record Group(string Name, double Total, List<TreeLeaf> Items);
+
+    protected override void OnParametersSet()
+    {
+        var leaves = Leaves.Where(l => l.Value > 0).ToList();
+        _max = leaves.Count > 0 ? leaves.Max(l => l.Value) : 1;
+        _groups = leaves
+            .GroupBy(l => l.Group)
+            .Select(g => new Group(g.Key, g.Sum(x => x.Value), g.OrderByDescending(x => x.Value).ToList()))
+            .OrderByDescending(g => g.Total)
+            .ToList();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_mounted) { _mounted = true; await Task.Delay(60); StateHasChanged(); }
+    }
+
+    private static string Color(string provider) => provider.ToLowerInvariant() switch
+    {
+        "aws" => "var(--fx-aws)",
+        "azure" => "var(--fx-azure)",
+        "gcp" => "var(--fx-gcp)",
+        _ => "var(--fx-primary)"
+    };
+
+    private string Money(double v) => (ValueFormat ?? (x => x.ToString("C0")))(v);
+    private static string F(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+}
+
+<style>
+    .fx-cmap { width: 100%; overflow-x: auto; }
+    .fx-cmap-empty { color: var(--fx-text-muted); font-size: 13px; padding: 24px 0; text-align: center; }
+    .fx-cmap-row { display: flex; align-items: stretch; gap: 22px; min-height: 300px; padding-top: 6px; }
+    .fx-cmap-group { display: flex; flex-direction: column; gap: 8px; }
+    .fx-cmap-cols { display: flex; align-items: flex-end; gap: 14px; flex: 1; }
+    .fx-cmap-grouplabel {
+        text-align: center; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+        color: var(--fx-text-muted); border-top: 2px solid var(--fx-border); padding-top: 6px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .fx-cmap-col { display: flex; flex-direction: column; align-items: center; width: 70px; }
+    .fx-cmap-val { font-size: 11px; font-weight: 700; color: var(--fx-text-muted); margin-bottom: 4px; }
+    .fx-cmap-track { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; min-height: 200px; }
+    .fx-cmap-bar {
+        position: relative; width: 46px; min-height: 6px; border-radius: 10px 10px 4px 4px;
+        background: linear-gradient(180deg, var(--fx-primary), color-mix(in srgb, var(--fx-primary) 50%, var(--fx-accent)));
+        box-shadow: 0 6px 16px color-mix(in srgb, var(--fx-primary) 26%, transparent);
+        transition: height .85s cubic-bezier(.22,1,.36,1), filter .15s ease, transform .15s ease;
+    }
+    .fx-cmap-col:hover .fx-cmap-bar { filter: brightness(1.1); transform: translateY(-2px); }
+    .fx-cmap-dot { position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+        width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
+    .fx-cmap-name {
+        margin-top: 8px; font-size: 11px; text-align: center; color: var(--fx-text);
+        max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+</style>

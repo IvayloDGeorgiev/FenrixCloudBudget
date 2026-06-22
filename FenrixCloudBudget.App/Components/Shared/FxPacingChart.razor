@@ -1,0 +1,155 @@
+@using System.Globalization
+@using FenrixCloudBudget.Services.Analytics
+@*
+   Budget pacing: cumulative actual (solid) vs ideal straight-line burn (dashed) vs forecast
+   to month-end (dotted), with the monthly budget as a ceiling line. Reveals left-to-right and
+   shows a tooltip per day. The whole point: see if you'll blow the budget before month end.
+*@
+
+<div class="fx-pacing">
+    <div class="fx-pacing-plot @(_mounted ? "is-revealed" : "")">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="fx-pacing-svg" aria-hidden="true">
+            <!-- budget ceiling -->
+            @if (Budget > 0)
+            {
+                var by = Y((double)Budget);
+                <line x1="0" y1="@F(by)" x2="100" y2="@F(by)" stroke="var(--fx-danger)" stroke-width="1"
+                      stroke-dasharray="2 2" vector-effect="non-scaling-stroke" opacity="0.7" />
+            }
+            <!-- ideal burn -->
+            <path d="@_idealPath" fill="none" stroke="var(--fx-text-muted)" stroke-width="1.2"
+                  stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
+            <!-- forecast -->
+            <path d="@_forecastPath" fill="none" stroke="var(--fx-warn)" stroke-width="1.6"
+                  stroke-dasharray="1.5 2.5" vector-effect="non-scaling-stroke" stroke-linecap="round" />
+            <!-- actual area + line -->
+            <path d="@_actualArea" fill="url(#fxPacingFill)" />
+            <path d="@_actualPath" fill="none" stroke="var(--fx-primary)" stroke-width="2"
+                  vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+            <defs>
+                <linearGradient id="fxPacingFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="var(--fx-primary)" stop-opacity="0.30" />
+                    <stop offset="100%" stop-color="var(--fx-primary)" stop-opacity="0" />
+                </linearGradient>
+            </defs>
+        </svg>
+
+        @for (var i = 0; i < _points.Count; i++)
+        {
+            var p = _points[i];
+            var idx = i;
+            <div class="fx-pacing-hit" style="left:@F(p.X)%"
+                 @onmouseover="@(() => _hover = idx)" @onmouseout="@(() => _hover = null)">
+                @if (_hover == idx)
+                {
+                    <div class="fx-pacing-tip" style="bottom:@F(100 - Math.Min(p.ActualY ?? p.ForecastY ?? 100, p.IdealY))%">
+                        <strong>Day @p.Day</strong>
+                        @if (p.Actual is not null) { <span>Actual @Money(p.Actual.Value)</span> }
+                        else if (p.Forecast is not null) { <span>Forecast @Money(p.Forecast.Value)</span> }
+                        <span class="fx-pacing-tip-ideal">Budget pace @Money(p.Ideal)</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="fx-pacing-legend">
+        <span><i class="fx-leg fx-leg-actual"></i> Actual</span>
+        <span><i class="fx-leg fx-leg-forecast"></i> Forecast</span>
+        <span><i class="fx-leg fx-leg-ideal"></i> Budget pace</span>
+        @if (Budget > 0) { <span><i class="fx-leg fx-leg-budget"></i> Budget</span> }
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<PacingPoint> Points { get; set; } = Array.Empty<PacingPoint>();
+    [Parameter] public decimal Budget { get; set; }
+    [Parameter] public Func<double, string>? ValueFormat { get; set; }
+
+    private bool _mounted;
+    private int? _hover;
+    private double _max = 1;
+    private List<Pt> _points = new();
+    private string _idealPath = "", _forecastPath = "", _actualPath = "", _actualArea = "";
+
+    private record Pt(int Day, double X, double Ideal, double IdealY, double? Actual, double? ActualY, double? Forecast, double? ForecastY);
+
+    protected override void OnParametersSet()
+    {
+        var n = Points.Count;
+        if (n == 0) { _points = new(); _idealPath = _forecastPath = _actualPath = _actualArea = ""; return; }
+
+        _max = Math.Max(1, Math.Max((double)Budget,
+            Points.Max(p => Math.Max(p.Ideal, Math.Max(p.Actual ?? 0, p.Forecast ?? 0)))));
+
+        _points = Points.Select((p, i) =>
+        {
+            var x = n == 1 ? 50 : (double)i / (n - 1) * 100;
+            return new Pt(p.Day, x, p.Ideal, Y(p.Ideal),
+                p.Actual, p.Actual is null ? null : Y(p.Actual.Value),
+                p.Forecast, p.Forecast is null ? null : Y(p.Forecast.Value));
+        }).ToList();
+
+        _idealPath = Path(_points.Select(p => (p.X, p.IdealY)));
+        _forecastPath = Path(_points.Where(p => p.ForecastY is not null).Select(p => (p.X, p.ForecastY!.Value)));
+        var actualPts = _points.Where(p => p.ActualY is not null).Select(p => (p.X, p.ActualY!.Value)).ToList();
+        _actualPath = Path(actualPts);
+        _actualArea = actualPts.Count > 1
+            ? Path(actualPts) + $" L{F(actualPts[^1].Item1)},100 L{F(actualPts[0].Item1)},100 Z"
+            : "";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_mounted) { _mounted = true; await Task.Delay(60); StateHasChanged(); }
+    }
+
+    private double Y(double v) => 96 - v / _max * 90;
+    private static string Path(IEnumerable<(double X, double Y)> pts)
+    {
+        var p = pts.ToList();
+        if (p.Count == 0) return "";
+        if (p.Count < 3) return "M" + string.Join(" L", p.Select(q => $"{F(q.X)},{F(q.Y)}"));
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"M{F(p[0].X)},{F(p[0].Y)}");
+        for (var i = 0; i < p.Count - 1; i++)
+        {
+            var p0 = p[Math.Max(0, i - 1)];
+            var p1 = p[i];
+            var p2 = p[i + 1];
+            var p3 = p[Math.Min(p.Count - 1, i + 2)];
+            var c1x = p1.X + (p2.X - p0.X) / 6.0;
+            var c1y = p1.Y + (p2.Y - p0.Y) / 6.0;
+            var c2x = p2.X - (p3.X - p1.X) / 6.0;
+            var c2y = p2.Y - (p3.Y - p1.Y) / 6.0;
+            sb.Append($" C{F(c1x)},{F(c1y)} {F(c2x)},{F(c2y)} {F(p2.X)},{F(p2.Y)}");
+        }
+        return sb.ToString();
+    }
+    private string Money(double v) => (ValueFormat ?? (x => x.ToString("C0")))(v);
+    private static string F(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+}
+
+<style>
+    .fx-pacing { width: 100%; }
+    .fx-pacing-plot { position: relative; width: 100%; height: 250px; }
+    .fx-pacing-svg { width: 100%; height: 100%; display: block;
+        clip-path: inset(0 100% 0 0); transition: clip-path 1.1s cubic-bezier(.22,1,.36,1); }
+    .fx-pacing-plot.is-revealed .fx-pacing-svg { clip-path: inset(0 0 0 0); }
+    .fx-pacing-hit { position: absolute; top: 0; bottom: 0; width: 12px; transform: translateX(-50%); cursor: pointer; }
+    .fx-pacing-tip {
+        position: absolute; left: 50%; transform: translate(-50%, 8px);
+        background: var(--fx-text); color: var(--fx-surface); padding: 6px 9px; border-radius: 9px;
+        font-size: 11px; white-space: nowrap; display: flex; flex-direction: column; gap: 1px; z-index: 5;
+        box-shadow: var(--fx-shadow);
+    }
+    .fx-pacing-tip span { font-weight: 700; }
+    .fx-pacing-tip-ideal { opacity: .7; font-weight: 600 !important; }
+    .fx-pacing-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--fx-text-muted); }
+    .fx-pacing-legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .fx-leg { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
+    .fx-leg-actual { background: var(--fx-primary); }
+    .fx-leg-forecast { background: var(--fx-warn); }
+    .fx-leg-ideal { background: var(--fx-text-muted); }
+    .fx-leg-budget { background: var(--fx-danger); }
+</style>

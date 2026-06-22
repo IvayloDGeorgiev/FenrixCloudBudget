@@ -1,0 +1,118 @@
+@using System.Globalization
+@using FenrixCloudBudget.Services.Analytics
+@*
+   Two-level treemap: projects become columns (width ∝ project spend), services stack within
+   (height ∝ service spend), coloured by provider. Areas are proportional, so the biggest blocks
+   are the biggest costs. Tiles have a gradient sheen, a provider dot, the project as an eyebrow,
+   fade/scale in, and lift on hover.
+*@
+
+<div class="fx-tree @(_mounted ? "is-revealed" : "")">
+    @if (_rects.Count == 0)
+    {
+        <div class="fx-tree-empty">No spend to map in range.</div>
+    }
+    else
+    {
+        @foreach (var r in _rects)
+        {
+            <div class="fx-tree-tile @(_hover == r.Key ? "is-hover" : _hover is not null ? "is-dim" : "")"
+                 style="left:@F(r.X)%;top:@F(r.Y)%;width:@F(r.W)%;height:@F(r.H)%;--tile:@r.Color"
+                 @onmouseover="@(() => _hover = r.Key)" @onmouseout="@(() => _hover = null)"
+                 title="@($"{r.Group} · {r.Name}: {Money(r.Value)}")">
+                <span class="fx-tree-dot" style="background:@r.Color"></span>
+                @if (r.W > 16 && r.H > 24)
+                {
+                    <div class="fx-tree-body">
+                        <span class="fx-tree-group">@r.Group</span>
+                        <strong>@r.Name</strong>
+                        <span class="fx-tree-value">@Money(r.Value)</span>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<TreeLeaf> Leaves { get; set; } = Array.Empty<TreeLeaf>();
+    [Parameter] public Func<double, string>? ValueFormat { get; set; }
+
+    private bool _mounted;
+    private int? _hover;
+    private List<Rect> _rects = new();
+    private record Rect(int Key, double X, double Y, double W, double H, string Group, string Name, double Value, string Color);
+
+    protected override void OnParametersSet()
+    {
+        _rects = new();
+        var leaves = Leaves.Where(l => l.Value > 0).ToList();
+        var grandTotal = leaves.Sum(l => l.Value);
+        if (grandTotal <= 0) return;
+
+        var groups = leaves.GroupBy(l => l.Group)
+            .Select(g => new { Name = g.Key, Total = g.Sum(x => x.Value), Items = g.OrderByDescending(x => x.Value).ToList() })
+            .OrderByDescending(g => g.Total)
+            .ToList();
+
+        var key = 0;
+        double x = 0;
+        const double gap = 0.7;
+        foreach (var g in groups)
+        {
+            var w = g.Total / grandTotal * 100;
+            double y = 0;
+            foreach (var leaf in g.Items)
+            {
+                var h = g.Total > 0 ? leaf.Value / g.Total * 100 : 0;
+                _rects.Add(new Rect(key++, x + gap / 2, y + gap / 2,
+                    Math.Max(0, w - gap), Math.Max(0, h - gap),
+                    g.Name, leaf.Name, leaf.Value, Color(leaf.Provider)));
+                y += h;
+            }
+            x += w;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_mounted) { _mounted = true; await Task.Delay(60); StateHasChanged(); }
+    }
+
+    private static string Color(string provider) => provider.ToLowerInvariant() switch
+    {
+        "aws" => "var(--fx-aws)",
+        "azure" => "var(--fx-azure)",
+        "gcp" => "var(--fx-gcp)",
+        _ => "var(--fx-primary)"
+    };
+
+    private string Money(double v) => (ValueFormat ?? (x => x.ToString("C0")))(v);
+    private static string F(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+}
+
+<style>
+    .fx-tree { position: relative; width: 100%; height: 300px; }
+    .fx-tree-empty { color: var(--fx-text-muted); font-size: 13px; padding: 24px 0; text-align: center; }
+    .fx-tree-tile {
+        position: absolute; border-radius: 12px; overflow: hidden; cursor: default;
+        /* Same gradient language as the Top cost drivers bars (theme primary → accent). */
+        background:
+            linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 55%),
+            linear-gradient(180deg, var(--fx-primary), color-mix(in srgb, var(--fx-primary) 50%, var(--fx-accent)));
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 6px 16px color-mix(in srgb, var(--fx-primary) 22%, transparent);
+        opacity: 0; transform: scale(.92); transform-origin: center;
+        transition: opacity .5s ease, transform .45s cubic-bezier(.22,1,.36,1), filter .15s ease, box-shadow .15s ease;
+    }
+    .fx-tree.is-revealed .fx-tree-tile { opacity: 1; transform: scale(1); }
+    .fx-tree-tile.is-hover { filter: brightness(1.08); transform: scale(1.012); z-index: 3;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.25), 0 12px 26px rgba(16,24,40,.22); }
+    .fx-tree-tile.is-dim { opacity: .55; }
+    /* Provider indicator (colour no longer encodes provider; this dot does). */
+    .fx-tree-dot { position: absolute; top: 10px; right: 10px; width: 9px; height: 9px; border-radius: 50%;
+        background: var(--tile); box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
+    .fx-tree-body { padding: 10px 12px; color: #fff; line-height: 1.3; text-shadow: 0 1px 2px rgba(0,0,0,.18); }
+    .fx-tree-group { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .07em; opacity: .85; }
+    .fx-tree-body strong { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fx-tree-value { font-size: 12px; font-weight: 700; opacity: .95; }
+</style>

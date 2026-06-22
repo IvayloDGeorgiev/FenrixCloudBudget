@@ -1,0 +1,67 @@
+@using System.Globalization
+@using FenrixCloudBudget.Services.Analytics
+@*
+   Horizontal ranked bars (e.g. spend by client/project). Bars grow on first render.
+*@
+
+<div class="fx-rank @(_mounted ? "is-revealed" : "")">
+    @if (_items.Count == 0)
+    {
+        <div class="fx-rank-empty">No data in range.</div>
+    }
+    else
+    {
+        @foreach (var it in _items)
+        {
+            var pct = _max > 0 ? it.Value / _max * 100 : 0;
+            <div class="fx-rank-row">
+                <div class="fx-rank-label" title="@it.Label">@it.Label</div>
+                <div class="fx-rank-track">
+                    <div class="fx-rank-fill" style="width:@(_mounted ? F(pct) : "0")%"></div>
+                </div>
+                <div class="fx-rank-value">@Money(it.Value)</div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<RankItem> Items { get; set; } = Array.Empty<RankItem>();
+    [Parameter] public Func<double, string>? ValueFormat { get; set; }
+
+    private bool _mounted;
+    private List<RankItem> _items = new();
+    private double _max;
+
+    protected override void OnParametersSet()
+    {
+        _items = Items.ToList();
+        _max = _items.Count > 0 ? _items.Max(i => i.Value) : 0;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_mounted) { _mounted = true; await Task.Delay(60); StateHasChanged(); }
+    }
+
+    private string Money(double v) => (ValueFormat ?? (x => x.ToString("C0")))(v);
+    private static string F(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+}
+
+<style>
+    .fx-rank { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+    .fx-rank-empty { color: var(--fx-text-muted); font-size: 13px; padding: 16px 0; text-align: center; }
+    .fx-rank-row { display: grid; grid-template-columns: minmax(80px, 130px) 1fr auto; align-items: center; gap: 10px;
+        padding: 2px 4px; border-radius: 8px; transition: background .15s ease; }
+    .fx-rank-row:hover { background: var(--fx-surface-2); }
+    .fx-rank-row:hover .fx-rank-fill { filter: brightness(1.1); }
+    .fx-rank-row:hover .fx-rank-value { color: var(--fx-text); }
+    .fx-rank-label { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fx-rank-track { height: 12px; background: var(--fx-surface-2); border-radius: 999px; overflow: hidden; }
+    .fx-rank-fill {
+        height: 100%; border-radius: 999px;
+        background: linear-gradient(90deg, var(--fx-primary), color-mix(in srgb, var(--fx-primary) 55%, var(--fx-accent)));
+        transition: width .9s cubic-bezier(.22,1,.36,1);
+    }
+    .fx-rank-value { font-size: 12px; font-weight: 700; color: var(--fx-text-muted); }
+</style>

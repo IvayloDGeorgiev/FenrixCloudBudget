@@ -7,6 +7,12 @@
 **Last updated:** 2026-06-22
 **Current focus:** Phases 4–5 implemented (via Codex). Latest change: Projects page now supports editing/removing **manual** services (cloud-synced services are locked) and full **per-project budget** CRUD so pay-as-you-go spend triggers threshold alerts before overspend. Next: manual Windows/API verification, then complete hosted OTP sign-in and bidirectional SaaS sync.
 
+### Recent: dashboard as a "budget radar"
+- ✅ `DashboardAnalytics` service computes everything in one pass: budget **pacing** (actual vs ideal vs forecast), **projected month-end**, **budget runway / days-to-exhaust**, **month-over-month**, budget **health** counts, spend trend + **anomaly** flags (mean+2σ), **cost composition over time** by provider, **spend by client/project**, **top movers** (vs previous period), a **treemap** (project→service), and an **estimated-vs-synced** split. Covered by `DashboardAnalyticsTests`.
+- ✅ New chart components: `FxPacingChart`, `FxStackedArea`, `FxRankBars`, `FxDeltaBars`, `FxTreemap`; `FxAreaChart` extended with anomaly markers.
+- ✅ Dashboard rebuilt: KPI row (spend, projected month-end, runway, MoM) → pacing hero (+health chips) → budget guardrails → provider mix/top drivers → movers/composition → by client/project → cost map (treemap) → spend trend (bottom, with anomaly flags + data-quality %).
+- Deferred (needs more data): **unallocated/ungrouped spend** (requires account-level totals beyond per-service records), idle/waste, commitment coverage.
+
 ### Recent: modern dashboard charts
 - ✅ Replaced MudChart with custom animated, interactive SVG/CSS components in `Components/Shared`:
   `FxDonutChart` (provider mix, draw-in + hover highlight + centre total), `FxBarChart` (top cost

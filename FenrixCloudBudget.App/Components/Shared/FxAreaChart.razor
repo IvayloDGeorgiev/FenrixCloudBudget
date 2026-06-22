@@ -25,10 +25,11 @@
         {
             var p = _pts[i];
             var idx = i;
-            <div class="fx-area-point @(_hover == idx ? "is-hover" : "")"
+            var anomaly = AnomalyIndices.Contains(idx);
+            <div class="fx-area-point @(_hover == idx ? "is-hover" : "") @(anomaly ? "is-anomaly" : "")"
                  style="left:@F(p.X)%;top:@F(p.Y)%"
                  @onmouseover="@(() => _hover = idx)" @onmouseout="@(() => _hover = null)">
-                <div class="fx-area-tooltip">@p.Label<span>@Format(p.Value)</span></div>
+                <div class="fx-area-tooltip">@p.Label<span>@Format(p.Value)</span>@if (anomaly){<span class="fx-area-flag">⚠ spike</span>}</div>
             </div>
         }
     </div>
@@ -37,6 +38,7 @@
 @code {
     [Parameter] public IReadOnlyList<KeyValuePair<string, double>> Points { get; set; } = Array.Empty<KeyValuePair<string, double>>();
     [Parameter] public Func<double, string>? ValueFormat { get; set; }
+    [Parameter] public IReadOnlyList<int> AnomalyIndices { get; set; } = Array.Empty<int>();
 
     private bool _mounted;
     private int? _hover;
@@ -60,9 +62,31 @@
             return new Pt(d.Key, d.Value, x, y);
         }).ToList();
 
-        var line = string.Join(" ", _pts.Select((p, i) => $"{(i == 0 ? "M" : "L")}{F(p.X)},{F(p.Y)}"));
-        LinePath = line;
-        AreaPath = $"M{F(_pts[0].X)},100 " + string.Join(" ", _pts.Select(p => $"L{F(p.X)},{F(p.Y)}")) + $" L{F(_pts[^1].X)},100 Z";
+        var xy = _pts.Select(p => (p.X, p.Y)).ToList();
+        LinePath = Smooth(xy);
+        AreaPath = Smooth(xy) + $" L{F(_pts[^1].X)},100 L{F(_pts[0].X)},100 Z";
+    }
+
+    /// <summary>Catmull-Rom → cubic-bezier smoothing for a pleasing curved line.</summary>
+    private static string Smooth(IReadOnlyList<(double X, double Y)> p)
+    {
+        if (p.Count == 0) return "";
+        if (p.Count < 3) return "M" + string.Join(" L", p.Select(q => $"{F(q.X)},{F(q.Y)}"));
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"M{F(p[0].X)},{F(p[0].Y)}");
+        for (var i = 0; i < p.Count - 1; i++)
+        {
+            var p0 = p[Math.Max(0, i - 1)];
+            var p1 = p[i];
+            var p2 = p[i + 1];
+            var p3 = p[Math.Min(p.Count - 1, i + 2)];
+            var c1x = p1.X + (p2.X - p0.X) / 6.0;
+            var c1y = p1.Y + (p2.Y - p0.Y) / 6.0;
+            var c2x = p2.X - (p3.X - p1.X) / 6.0;
+            var c2y = p2.Y - (p3.Y - p1.Y) / 6.0;
+            sb.Append($" C{F(c1x)},{F(c1y)} {F(c2x)},{F(c2y)} {F(p2.X)},{F(p2.Y)}");
+        }
+        return sb.ToString();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -92,6 +116,12 @@
     }
     .fx-area-plot.is-revealed .fx-area-point { opacity: 1; }
     .fx-area-point.is-hover { transform: translate(-50%, -50%) scale(1.35); }
+    .fx-area-point.is-anomaly {
+        width: 13px; height: 13px; background: var(--fx-danger); border-color: var(--fx-surface);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--fx-danger) 30%, transparent);
+        opacity: 1;
+    }
+    .fx-area-flag { color: var(--fx-warn); font-weight: 800; }
     .fx-area-tooltip {
         position: absolute; bottom: 150%; left: 50%; transform: translateX(-50%) scale(.96);
         background: var(--fx-text); color: var(--fx-surface); padding: 6px 10px; border-radius: 9px;

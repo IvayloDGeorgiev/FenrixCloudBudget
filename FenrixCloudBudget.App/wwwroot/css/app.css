@@ -1008,6 +1008,7 @@ button,
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--fx-gap);
+    align-items: start; /* cards size to their own content instead of stretching to the tallest */
 }
 
 /* The budget table reads better full-width below the two charts. */
@@ -1017,7 +1018,11 @@ button,
 }
 
 .fx-chart-card {
-    min-height: 390px;
+    /* Size to content; charts set their own heights. Avoids big empty cards when
+       a panel has few rows (e.g. a single mover). */
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .fx-chart-wrap {
@@ -1496,6 +1501,39 @@ button,
 /* Top budget card: size to its content (no tall min-height) and keep a clear gap
    above the charts grid so their hover/elevation areas don't overlap. */
 .fx-budget-section { min-height: 0; margin-bottom: var(--fx-gap); }
+
+/* Uniform vertical spacing between every top-level dashboard block so cards never touch
+   or overlap (incl. on hover-lift). */
+.fx-dashboard-stack > section { margin-bottom: var(--fx-gap); }
+.fx-dashboard-stack > section:last-child { margin-bottom: 0; }
+
+/* Budget-health chips in the pacing card header. */
+.fx-health-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.fx-health { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.fx-health.on { background: color-mix(in srgb, var(--fx-ok) 16%, transparent); color: var(--fx-ok); }
+.fx-health.near { background: color-mix(in srgb, var(--fx-warn) 18%, transparent); color: var(--fx-warn); }
+.fx-health.over { background: color-mix(in srgb, var(--fx-danger) 16%, transparent); color: var(--fx-danger); }
+
+/* KPI accent colours. */
+.fx-text-danger { color: var(--fx-danger) !important; }
+.fx-text-ok { color: var(--fx-ok) !important; }
+
+/* Project budgets: spend vs cap progress list. */
+.fx-pbud { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px 28px; }
+.fx-pbud-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.fx-pbud-name { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-pbud-nums { font-size: 13px; color: var(--fx-text-muted); white-space: nowrap; }
+.fx-pbud-nums strong { color: var(--fx-text); }
+.fx-pbud-track { height: 12px; border-radius: 999px; background: var(--fx-surface-2); overflow: hidden; }
+.fx-pbud-fill { height: 100%; border-radius: 999px; transition: width .9s cubic-bezier(.22,1,.36,1); }
+.fx-pbud-fill.ok { background: linear-gradient(90deg, color-mix(in srgb, var(--fx-ok) 65%, transparent), var(--fx-ok)); }
+.fx-pbud-fill.near { background: linear-gradient(90deg, color-mix(in srgb, var(--fx-warn) 65%, transparent), var(--fx-warn)); }
+.fx-pbud-fill.over { background: linear-gradient(90deg, color-mix(in srgb, var(--fx-danger) 65%, transparent), var(--fx-danger)); }
+.fx-pbud-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 5px; font-size: 12px; color: var(--fx-text-muted); }
+.fx-pbud-pct { font-weight: 700; }
+.fx-pbud-pct.ok { color: var(--fx-ok); }
+.fx-pbud-pct.near { color: var(--fx-warn); }
+.fx-pbud-pct.over { color: var(--fx-danger); }
 
 .fx-discovery-list {
     max-height: 220px;
