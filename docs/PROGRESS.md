@@ -32,7 +32,7 @@
 ### Recent: project services & budgets (UX request)
 - ✅ Manual services are inline-editable (name/provider/est. cost) and removable on the Projects editor.
 - ✅ Project creation/editing now uses a larger sectioned workspace (Basics, Services, Budgets, Cloud resources) with responsive card editors instead of one long form; manual services show the same live AWS/Azure/GCP provider badge as synced resources.
-- ✅ Cloud-synced services are locked (read-only, lock icon) — managed via Cloud Services.
+- ✅ Cloud-synced services are locked (read-only, lock icon) — managed via Cloud Accounts.
 - ✅ Per-project budgets: add/edit/remove with amount, period, and alert thresholds; surfaced on project tiles.
 - ✅ `SaveAsync` reconciles the tracked entity (EF detached `Update` does not delete removed children), so removals persist.
 - Note: no DB schema change (Budget/Service tables already existed) — no new migration required.
@@ -69,7 +69,7 @@ Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 - ✅ `ICloudConnector` + AWS/Azure/GCP implementations (discovery + cost) behind the interface, each with a `CredentialSchema`.
 - ✅ Secure credential storage (AES + masked hint); non-secret fields persisted as `CloudAccount.OptionsJson` for re-auth.
 - ✅ `CloudConnectionService` orchestrates connect / re-authenticate / discover (covered by `CloudConnectionServiceTests`).
-- ✅ Cloud Services page: connect-account dialog (dynamic per-provider fields) + per-account "Discover resources".
+- ✅ Cloud Accounts page: connect-account dialog (dynamic per-provider fields) + per-account "Discover resources".
 - ✅ "Choose existing resources" in Projects: pick account → discover → multi-select → added as connected Services.
 - 🟡 Reminders can be **linked** to a connected account (picker added); **auto-detecting the secret/cert expiry date is still TODO** (needs the cost/metadata sync in Phase 4).
 - **Next:** auto-fill reminder expiry from app-registration secret/certificate metadata.

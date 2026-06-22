@@ -194,7 +194,7 @@
                                                         <span class="fx-chip @s.Provider.ToString().ToLower()">@ProviderLabel(s.Provider)</span>
                                                         <span class="fx-source-tag synced">Cloud synced</span>
                                                     </div>
-                                                    <MudTooltip Text="@($"Synced from {AccountName(s.CloudAccountId)} — manage in Cloud Services")">
+                                                    <MudTooltip Text="@($"Synced from {AccountName(s.CloudAccountId)} — manage in Cloud Accounts")">
                                                         <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
                                                     </MudTooltip>
                                                 </header>
@@ -327,7 +327,7 @@
                                 <div class="fx-editor-empty">
                                     <MudIcon Icon="@Icons.Material.Filled.CloudQueue" />
                                     <strong>No cloud accounts connected</strong>
-                                    <span>Connect an AWS, Azure or GCP account from Cloud Services before importing resources.</span>
+                                    <span>Connect an AWS, Azure or GCP account from Cloud Accounts before importing resources.</span>
                                 </div>
                             }
                             else

@@ -41,7 +41,7 @@ Local/no-auth first (single-user). OTP via backend (hashed, expiring, rate-limit
 One `INotificationService` (in-app / local / email). Pluggable `IEmailSender` adapters: In-app/device only (default), Custom SMTP, Resend, SendGrid, Amazon SES, Postmark, Azure Communication Services, FenrixCloud managed (SaaS). Settings renders each method's fields dynamically; secrets masked + encrypted; templates branded; de-dup + quiet hours.
 
 ## 8. UI / UX
-Splash → tile landing (Dashboard, Projects, Clients, Reminders, Users, Cloud Services, Settings). Dashboard with global + per-chart filters and export. Projects create flow with manual services or "choose existing resources". Full client CRUD + quick-add. Reminders with lead-times/recurrence/snooze. Cloud Services management. Settings (Appearance, Data & Connections, Sync, Email & Notifications, Auth, About). Theming via design tokens, 3–4 themes, WCAG AA.
+Splash → tile landing (Dashboard, Projects, Clients, Reminders, Users, Cloud Accounts, Settings). Dashboard with global + per-chart filters and export. Projects create flow with manual services or "choose existing resources". Full client CRUD + quick-add. Reminders with lead-times/recurrence/snooze. Cloud account management. Settings (Appearance, Data & Connections, Sync, Email & Notifications, Auth, About). Theming via design tokens, 3–4 themes, WCAG AA.
 
 ## 9. Monetization
 Free + AdMob (banners off data-entry screens; occasional interstitials); optional Pro/remove-ads via Play Billing; Play Console requirements (AAB, signing, privacy policy, data-safety, content rating); UMP/GDPR consent.
