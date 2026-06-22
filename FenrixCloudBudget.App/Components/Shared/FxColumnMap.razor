@@ -1,9 +1,9 @@
 @using System.Globalization
 @using FenrixCloudBudget.Services.Analytics
 @*
-   Cost map as vertical columns: one bar per service (height ∝ spend), grouped under their
-   project, theme-gradient fill (matching Top cost drivers) with a provider dot. Bars grow in
-   and lift on hover.
+   Cost map: one vertical bar per service (height ∝ spend), grouped under its project.
+   Theme-gradient fill (matching Top cost drivers) with a provider dot. Mirrors the proven
+   bar-chart layout (fixed-height plot + columns that stretch) so heights are accurate.
 *@
 
 <div class="fx-cmap">
@@ -16,19 +16,19 @@
         <div class="fx-cmap-row @(_mounted ? "is-revealed" : "")">
             @foreach (var g in _groups)
             {
-                <div class="fx-cmap-group">
-                    <div class="fx-cmap-cols">
+                <div class="fx-cmap-group" style="flex:@g.Items.Count">
+                    <div class="fx-cmap-plot">
                         @foreach (var s in g.Items)
                         {
                             var hPct = _max > 0 ? s.Value / _max * 100 : 0;
                             <div class="fx-cmap-col" title="@($"{g.Name} · {s.Name}: {Money(s.Value)}")">
-                                <div class="fx-cmap-val">@Money(s.Value)</div>
                                 <div class="fx-cmap-track">
                                     <div class="fx-cmap-bar" style="height:@(_mounted ? F(hPct) : "0")%">
                                         <span class="fx-cmap-dot" style="background:@Color(s.Provider)"></span>
                                     </div>
                                 </div>
                                 <div class="fx-cmap-name" title="@s.Name">@s.Name</div>
+                                <div class="fx-cmap-val">@Money(s.Value)</div>
                             </div>
                         }
                     </div>
@@ -77,22 +77,26 @@
 }
 
 <style>
-    .fx-cmap { width: 100%; overflow-x: auto; }
+    .fx-cmap { width: 100%; padding-bottom: 4px; }
     .fx-cmap-empty { color: var(--fx-text-muted); font-size: 13px; padding: 24px 0; text-align: center; }
-    .fx-cmap-row { display: flex; align-items: stretch; gap: 22px; min-height: 300px; padding-top: 6px; }
-    .fx-cmap-group { display: flex; flex-direction: column; gap: 8px; }
-    .fx-cmap-cols { display: flex; align-items: flex-end; gap: 14px; flex: 1; }
+    /* Fill the full card width; groups share it in proportion to how many services they hold,
+       so bars spread out with few services and condense as more are added. */
+    .fx-cmap-row { display: flex; width: 100%; align-items: stretch; gap: 26px; }
+    .fx-cmap-group { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+    /* Fixed-height plot so the bar height percentages have a real reference. */
+    .fx-cmap-plot { display: flex; align-items: flex-end; gap: 12px; height: 250px; }
+
     .fx-cmap-grouplabel {
         text-align: center; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
         color: var(--fx-text-muted); border-top: 2px solid var(--fx-border); padding-top: 6px;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
-    .fx-cmap-col { display: flex; flex-direction: column; align-items: center; width: 70px; }
-    .fx-cmap-val { font-size: 11px; font-weight: 700; color: var(--fx-text-muted); margin-bottom: 4px; }
-    .fx-cmap-track { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; min-height: 200px; }
+    .fx-cmap-col { height: 100%; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+    .fx-cmap-track { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
     .fx-cmap-bar {
-        position: relative; width: 46px; min-height: 6px; border-radius: 10px 10px 4px 4px;
+        position: relative; width: 70%; max-width: 120px; min-width: 18px; min-height: 6px; border-radius: 12px 12px 4px 4px;
         background: linear-gradient(180deg, var(--fx-primary), color-mix(in srgb, var(--fx-primary) 50%, var(--fx-accent)));
         box-shadow: 0 6px 16px color-mix(in srgb, var(--fx-primary) 26%, transparent);
         transition: height .85s cubic-bezier(.22,1,.36,1), filter .15s ease, transform .15s ease;
@@ -102,6 +106,7 @@
         width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
     .fx-cmap-name {
         margin-top: 8px; font-size: 11px; text-align: center; color: var(--fx-text);
-        max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+    .fx-cmap-val { font-size: 11px; font-weight: 700; color: var(--fx-text-muted); }
 </style>

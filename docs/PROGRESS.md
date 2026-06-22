@@ -11,6 +11,7 @@
 - ✅ `DashboardAnalytics` service computes everything in one pass: budget **pacing** (actual vs ideal vs forecast), **projected month-end**, **budget runway / days-to-exhaust**, **month-over-month**, budget **health** counts, spend trend + **anomaly** flags (mean+2σ), **cost composition over time** by provider, **spend by client/project**, **top movers** (vs previous period), a **treemap** (project→service), and an **estimated-vs-synced** split. Covered by `DashboardAnalyticsTests`.
 - ✅ New chart components: `FxPacingChart`, `FxStackedArea`, `FxRankBars`, `FxDeltaBars`, `FxTreemap`; `FxAreaChart` extended with anomaly markers.
 - ✅ Dashboard rebuilt: KPI row (spend, projected month-end, runway, MoM) → pacing hero (+health chips) → budget guardrails → provider mix/top drivers → movers/composition → by client/project → cost map (treemap) → spend trend (bottom, with anomaly flags + data-quality %).
+- ✅ Edge tooltips on pacing, top-driver, composition, and spend-trend charts anchor inward for the first/last data items instead of being clipped by the chart card.
 - Deferred (needs more data): **unallocated/ungrouped spend** (requires account-level totals beyond per-service records), idle/waste, commitment coverage.
 
 ### Recent: modern dashboard charts
@@ -30,6 +31,7 @@
 
 ### Recent: project services & budgets (UX request)
 - ✅ Manual services are inline-editable (name/provider/est. cost) and removable on the Projects editor.
+- ✅ Project creation/editing now uses a larger sectioned workspace (Basics, Services, Budgets, Cloud resources) with responsive card editors instead of one long form; manual services show the same live AWS/Azure/GCP provider badge as synced resources.
 - ✅ Cloud-synced services are locked (read-only, lock icon) — managed via Cloud Services.
 - ✅ Per-project budgets: add/edit/remove with amount, period, and alert thresholds; surfaced on project tiles.
 - ✅ `SaveAsync` reconciles the tracked entity (EF detached `Update` does not delete removed children), so removals persist.

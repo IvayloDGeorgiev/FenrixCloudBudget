@@ -26,7 +26,7 @@
             var p = _pts[i];
             var idx = i;
             var anomaly = AnomalyIndices.Contains(idx);
-            <div class="fx-area-point @(_hover == idx ? "is-hover" : "") @(anomaly ? "is-anomaly" : "")"
+            <div class="fx-area-point @(_hover == idx ? "is-hover" : "") @(anomaly ? "is-anomaly" : "") @(idx == 0 ? "is-first" : "") @(idx == _pts.Count - 1 ? "is-last" : "")"
                  style="left:@F(p.X)%;top:@F(p.Y)%"
                  @onmouseover="@(() => _hover = idx)" @onmouseout="@(() => _hover = null)">
                 <div class="fx-area-tooltip">@p.Label<span>@Format(p.Value)</span>@if (anomaly){<span class="fx-area-flag">⚠ spike</span>}</div>
@@ -130,4 +130,17 @@
     }
     .fx-area-tooltip span { font-weight: 800; }
     .fx-area-point.is-hover .fx-area-tooltip { opacity: 1; transform: translateX(-50%) scale(1); }
+    .fx-area-point.is-first .fx-area-tooltip {
+        left: 50%; transform: translateX(0) scale(.96); transform-origin: bottom left; align-items: flex-start;
+    }
+    .fx-area-point.is-first.is-hover .fx-area-tooltip { transform: translateX(0) scale(1); }
+    .fx-area-point.is-last .fx-area-tooltip {
+        right: 50%; left: auto; transform: translateX(0) scale(.96); transform-origin: bottom right; align-items: flex-end;
+    }
+    .fx-area-point.is-last.is-hover .fx-area-tooltip { transform: translateX(0) scale(1); }
+    .fx-area-point.is-first.is-last .fx-area-tooltip {
+        right: auto; left: 50%; transform: translateX(-50%) scale(.96);
+        transform-origin: bottom center; align-items: center;
+    }
+    .fx-area-point.is-first.is-last.is-hover .fx-area-tooltip { transform: translateX(-50%) scale(1); }
 </style>

@@ -24,7 +24,7 @@
             <div class="fx-chip-row">
                 @foreach (var prov in p.Services.Select(s => s.Provider).Distinct())
                 {
-                    <span class="fx-chip @prov.ToString().ToLower()">@prov</span>
+                    <span class="fx-chip @prov.ToString().ToLower()">@ProviderLabel(prov)</span>
                 }
             </div>
             <div class="fx-tile-stat fx-project-spend">
@@ -43,144 +43,371 @@
 
 @if (_editing is not null)
 {
-    <AppModal Title="@(_editing.Id == 0 ? "New project" : _editing.Name)"
-              Width="large"
+    <AppModal Title="@(_editing.Id == 0 ? "Create project" : "Edit project")"
+              Width="workspace"
               OnCancel="CloseEditor">
         <ChildContent>
-            <MudTextField @bind-Value="_editing.Name" Label="Name *" Required="true" />
-            <MudTextField @bind-Value="_editing.Description" Label="Description" Lines="2" />
-            <div class="fx-form-row">
-                <MudSelect T="int?" @bind-Value="_editing.ClientId" Label="Client" Clearable="true" Class="fx-form-grow">
-                    @foreach (var c in _clients)
-                    {
-                        <MudSelectItem T="int?" Value="@c.Id">@c.Name</MudSelectItem>
-                    }
-                </MudSelect>
-                <MudSelect T="string" @bind-Value="_editing.Currency" Label="Currency" Class="fx-form-compact">
-                    @foreach (var cur in Currencies)
-                    {
-                        <MudSelectItem Value="@cur">@cur</MudSelectItem>
-                    }
-                </MudSelect>
-            </div>
-
-            <MudText Typo="Typo.subtitle2" Class="mt-4">Services</MudText>
-            <MudText Typo="Typo.caption" Class="mb-2">
-                Manually-added services can be edited or removed. Services pulled from a connected
-                cloud account are locked — manage those in <strong>Cloud Services</strong>.
-            </MudText>
-
-            @foreach (var s in _editing.Services)
-            {
-                @if (s.Source == ServiceSource.Manual)
-                {
-                    <div class="fx-service-row">
-                        <MudSelect T="CloudProvider" @bind-Value="s.Provider" Dense="true" Class="fx-form-compact">
-                            <MudSelectItem Value="CloudProvider.Aws">AWS</MudSelectItem>
-                            <MudSelectItem Value="CloudProvider.Azure">Azure</MudSelectItem>
-                            <MudSelectItem Value="CloudProvider.Gcp">GCP</MudSelectItem>
-                        </MudSelect>
-                        <MudTextField @bind-Value="s.Name" Label="Name" Class="fx-form-grow" />
-                        <MudNumericField @bind-Value="s.EstimatedCost" Label="Est./mo" Class="fx-form-compact" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
-                                       aria-label="Remove service" OnClick="@(() => RemoveService(s))" />
+            <div class="fx-project-editor">
+                <header class="fx-project-editor-summary">
+                    <div class="fx-project-editor-mark">
+                        <MudIcon Icon="@Icons.Material.Filled.FolderOpen" />
                     </div>
-                }
-                else
-                {
-                    <div class="fx-service-row fx-service-locked">
-                        <span class="fx-chip @s.Provider.ToString().ToLower()">@s.Provider</span>
-                        <span class="fx-service-name">@s.Name</span>
-                        <span class="fx-service-type">@s.ServiceType</span>
-                        <strong>@s.EstimatedCost.ToString("C0")</strong>
-                        <MudTooltip Text="@($"Synced from {AccountName(s.CloudAccountId)} — manage in Cloud Services")">
-                            <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
-                        </MudTooltip>
+                    <div class="fx-project-editor-copy">
+                        <span class="fx-project-editor-kicker">@(_editing.Id == 0 ? "New workspace" : "Project workspace")</span>
+                        <strong>@ProjectDisplayName</strong>
+                        <span>@ProjectSummary</span>
                     </div>
-                }
-            }
+                    <div class="fx-project-editor-stats">
+                        <div><strong>@ManualServiceCount</strong><span>manual</span></div>
+                        <div><strong>@ConnectedServiceCount</strong><span>synced</span></div>
+                        <div><strong>@_editing.Budgets.Count</strong><span>budgets</span></div>
+                        <span class="fx-project-status @StatusClass(_editing.Status)">@_editing.Status</span>
+                    </div>
+                </header>
 
-            <div class="fx-service-entry">
-                <MudTextField @bind-Value="_newService.Name" Label="Service name" Class="fx-form-grow" />
-                <MudSelect T="CloudProvider" @bind-Value="_newService.Provider" Label="Provider" Class="fx-form-compact">
-                    <MudSelectItem Value="CloudProvider.Aws">AWS</MudSelectItem>
-                    <MudSelectItem Value="CloudProvider.Azure">Azure</MudSelectItem>
-                    <MudSelectItem Value="CloudProvider.Gcp">GCP</MudSelectItem>
-                </MudSelect>
-                <MudNumericField @bind-Value="_newService.EstimatedCost" Label="Est./mo" Class="fx-form-compact" />
-                <MudButton Class="fx-inline-action" OnClick="AddService">Add</MudButton>
-            </div>
+                <nav class="fx-project-editor-nav" aria-label="Project editor sections">
+                    <button type="button" class="@SectionClass(ProjectEditorSection.Basics)"
+                            @onclick="@(() => OpenSection(ProjectEditorSection.Basics))">
+                        <MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" />
+                        <span><strong>Basics</strong><small>Name, client and status</small></span>
+                        <b>01</b>
+                    </button>
+                    <button type="button" class="@SectionClass(ProjectEditorSection.Services)"
+                            @onclick="@(() => OpenSection(ProjectEditorSection.Services))">
+                        <MudIcon Icon="@Icons.Material.Filled.CloudQueue" Size="Size.Small" />
+                        <span><strong>Services</strong><small>Manual and synced costs</small></span>
+                        <b>02</b>
+                    </button>
+                    <button type="button" class="@SectionClass(ProjectEditorSection.Budgets)"
+                            @onclick="@(() => OpenSection(ProjectEditorSection.Budgets))">
+                        <MudIcon Icon="@Icons.Material.Filled.Shield" Size="Size.Small" />
+                        <span><strong>Budgets</strong><small>Caps and alert levels</small></span>
+                        <b>03</b>
+                    </button>
+                    <button type="button" class="@SectionClass(ProjectEditorSection.CloudResources)"
+                            @onclick="@(() => OpenSection(ProjectEditorSection.CloudResources))">
+                        <MudIcon Icon="@Icons.Material.Filled.CloudSync" Size="Size.Small" />
+                        <span><strong>Cloud resources</strong><small>Discover existing services</small></span>
+                        <b>04</b>
+                    </button>
+                </nav>
 
-            <MudDivider Class="my-3" />
-            <MudText Typo="Typo.subtitle2">Budgets</MudText>
-            <MudText Typo="Typo.caption" Class="mb-2">
-                Set a spend cap per project. You'll get alerts as usage approaches each threshold —
-                essential for pay-as-you-go services so you're warned before overspending.
-            </MudText>
-
-            @foreach (var b in _editing.Budgets)
-            {
-                <div class="fx-service-row">
-                    <MudTextField @bind-Value="b.Name" Label="Name" Class="fx-form-grow" />
-                    <MudNumericField @bind-Value="b.Amount" Label="@($"Amount ({_editing.Currency})")" Class="fx-form-compact" />
-                    <MudSelect T="BudgetPeriod" @bind-Value="b.Period" Label="Period" Class="fx-form-compact">
-                        <MudSelectItem Value="BudgetPeriod.Monthly">Monthly</MudSelectItem>
-                        <MudSelectItem Value="BudgetPeriod.Quarterly">Quarterly</MudSelectItem>
-                        <MudSelectItem Value="BudgetPeriod.Annual">Annual</MudSelectItem>
-                    </MudSelect>
-                    <MudTextField @bind-Value="b.Thresholds" Label="Alerts %" Class="fx-form-compact" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
-                                   aria-label="Remove budget" OnClick="@(() => RemoveBudget(b))" />
-                </div>
-            }
-
-            <div class="fx-service-entry">
-                <MudTextField @bind-Value="_newBudget.Name" Label="Budget name" Class="fx-form-grow" Placeholder="e.g. Monthly cap" />
-                <MudNumericField @bind-Value="_newBudget.Amount" Label="Amount" Class="fx-form-compact" />
-                <MudSelect T="BudgetPeriod" @bind-Value="_newBudget.Period" Label="Period" Class="fx-form-compact">
-                    <MudSelectItem Value="BudgetPeriod.Monthly">Monthly</MudSelectItem>
-                    <MudSelectItem Value="BudgetPeriod.Quarterly">Quarterly</MudSelectItem>
-                    <MudSelectItem Value="BudgetPeriod.Annual">Annual</MudSelectItem>
-                </MudSelect>
-                <MudButton Class="fx-inline-action" OnClick="AddBudget">Add</MudButton>
-            </div>
-
-            <MudDivider Class="my-3" />
-            <MudText Typo="Typo.subtitle2">Choose existing resources</MudText>
-            <MudText Typo="Typo.caption" Class="mb-2">Import resources from a connected cloud account (cross-account grouping).</MudText>
-            <div class="fx-discovery-controls">
-                <MudSelect T="int?" @bind-Value="_discoverAccountId" Label="Connected account" Class="fx-form-grow">
-                    @foreach (var a in _accounts)
+                <main class="fx-project-editor-content">
+                    @if (_editorSection == ProjectEditorSection.Basics)
                     {
-                        <MudSelectItem T="int?" Value="@a.Id">@a.DisplayName (@a.Provider)</MudSelectItem>
-                    }
-                </MudSelect>
-                <MudButton Class="fx-inline-action" StartIcon="@Icons.Material.Filled.Search" OnClick="DiscoverAsync" Disabled="_discovering">
-                    @(_discovering ? "…" : "Discover")
-                </MudButton>
-            </div>
+                        <section class="fx-editor-section">
+                            <div class="fx-editor-section-head">
+                                <div>
+                                    <span>Project identity</span>
+                                    <h3>Start with the essentials</h3>
+                                    <p>Keep the project easy to recognise in reports and dashboards.</p>
+                                </div>
+                                <span class="fx-editor-step">Step 1 of 4</span>
+                            </div>
 
-            @if (_discovered is not null)
-            {
-                <div class="fx-discovery-list">
-                    @foreach (var r in _discovered)
-                    {
-                        <div class="fx-discovery-item">
-                            <MudCheckBox T="bool" Value="@_selected.Contains(r.ExternalId)"
-                                         ValueChanged="@(v => Toggle(r.ExternalId, v))" Dense="true" />
-                            <span class="fx-chip @r.Provider.ToString().ToLower()">@r.Provider</span>
-                            <span class="fx-discovery-name">@r.Name</span>
-                            <span class="fx-discovery-type">@r.ResourceType</span>
-                        </div>
+                            <div class="fx-editor-surface fx-editor-form-grid">
+                                <MudTextField @bind-Value="_editing.Name" Label="Project name *" Required="true"
+                                              Variant="Variant.Outlined" Class="fx-editor-span-2" />
+                                <MudTextField @bind-Value="_editing.Description" Label="Description" Lines="3"
+                                              Variant="Variant.Outlined" Class="fx-editor-span-2" />
+                                <MudSelect T="int?" @bind-Value="_editing.ClientId" Label="Client" Clearable="true"
+                                           Variant="Variant.Outlined">
+                                    @foreach (var c in _clients)
+                                    {
+                                        <MudSelectItem T="int?" Value="@c.Id">@c.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                                <MudSelect T="string" @bind-Value="_editing.Currency" Label="Reporting currency"
+                                           Variant="Variant.Outlined">
+                                    @foreach (var cur in Currencies)
+                                    {
+                                        <MudSelectItem Value="@cur">@cur</MudSelectItem>
+                                    }
+                                </MudSelect>
+                                <MudSelect T="ProjectStatus" @bind-Value="_editing.Status" Label="Project status"
+                                           Variant="Variant.Outlined">
+                                    <MudSelectItem Value="ProjectStatus.Active">Active</MudSelectItem>
+                                    <MudSelectItem Value="ProjectStatus.Paused">Paused</MudSelectItem>
+                                    <MudSelectItem Value="ProjectStatus.Archived">Archived</MudSelectItem>
+                                </MudSelect>
+                                <div class="fx-editor-field-note">
+                                    <MudIcon Icon="@Icons.Material.Filled.Shield" Size="Size.Small" />
+                                    <span>Currency changes also update manual estimates and project budgets when saved.</span>
+                                </div>
+                            </div>
+                        </section>
                     }
-                </div>
-                <MudButton Variant="Variant.Outlined" Class="mt-2" OnClick="AddSelectedResources"
-                           Disabled="_selected.Count == 0">Add @_selected.Count selected</MudButton>
-            }
+                    else if (_editorSection == ProjectEditorSection.Services)
+                    {
+                        <section class="fx-editor-section">
+                            <div class="fx-editor-section-head">
+                                <div>
+                                    <span>Cost composition</span>
+                                    <h3>Services in this project</h3>
+                                    <p>Manual estimates remain editable. Cloud-synced resources stay locked to their source.</p>
+                                </div>
+                                <span class="fx-editor-step">@_editing.Services.Count total</span>
+                            </div>
+
+                            @if (_editing.Services.Count == 0)
+                            {
+                                <div class="fx-editor-empty">
+                                    <MudIcon Icon="@Icons.Material.Filled.CloudQueue" />
+                                    <strong>No services added yet</strong>
+                                    <span>Add a manual estimate below, or discover resources from a connected account.</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="fx-project-service-list">
+                                    @foreach (var s in _editing.Services)
+                                    {
+                                        @if (s.Source == ServiceSource.Manual)
+                                        {
+                                            <article class="fx-project-service-card">
+                                                <header>
+                                                    <div class="fx-project-card-tags">
+                                                        <span class="fx-chip @s.Provider.ToString().ToLower()">@ProviderLabel(s.Provider)</span>
+                                                        <span class="fx-source-tag manual">Manual estimate</span>
+                                                    </div>
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                                                   aria-label="Remove service" OnClick="@(() => RemoveService(s))" />
+                                                </header>
+                                                <div class="fx-project-service-fields">
+                                                    <MudTextField @bind-Value="s.Name" Label="Service name" Variant="Variant.Outlined" />
+                                                    <MudSelect T="CloudProvider" @bind-Value="s.Provider" Label="Provider" Variant="Variant.Outlined">
+                                                        <MudSelectItem Value="CloudProvider.Aws">AWS</MudSelectItem>
+                                                        <MudSelectItem Value="CloudProvider.Azure">Azure</MudSelectItem>
+                                                        <MudSelectItem Value="CloudProvider.Gcp">GCP</MudSelectItem>
+                                                    </MudSelect>
+                                                    <MudNumericField @bind-Value="s.EstimatedCost"
+                                                                     Label="@($"Monthly estimate ({_editing.Currency})")"
+                                                                     Variant="Variant.Outlined" />
+                                                </div>
+                                            </article>
+                                        }
+                                        else
+                                        {
+                                            <article class="fx-project-service-card synced">
+                                                <header>
+                                                    <div class="fx-project-card-tags">
+                                                        <span class="fx-chip @s.Provider.ToString().ToLower()">@ProviderLabel(s.Provider)</span>
+                                                        <span class="fx-source-tag synced">Cloud synced</span>
+                                                    </div>
+                                                    <MudTooltip Text="@($"Synced from {AccountName(s.CloudAccountId)} — manage in Cloud Services")">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
+                                                    </MudTooltip>
+                                                </header>
+                                                <div class="fx-project-synced-service">
+                                                    <div><span>Resource</span><strong>@s.Name</strong></div>
+                                                    <div><span>Type</span><strong>@(string.IsNullOrWhiteSpace(s.ServiceType) ? "Cloud resource" : s.ServiceType)</strong></div>
+                                                    <div><span>Monthly cost</span><strong>@s.EstimatedCost.ToString("C0")</strong></div>
+                                                </div>
+                                            </article>
+                                        }
+                                    }
+                                </div>
+                            }
+
+                            <div class="fx-editor-composer">
+                                <div class="fx-editor-composer-head">
+                                    <div>
+                                        <span class="fx-chip @_newService.Provider.ToString().ToLower()">@ProviderLabel(_newService.Provider)</span>
+                                        <strong>Add a custom service</strong>
+                                    </div>
+                                    <span>Use a simple monthly estimate; you can refine it later.</span>
+                                </div>
+                                <div class="fx-project-service-composer">
+                                    <MudTextField @bind-Value="_newService.Name" Label="Service name" Variant="Variant.Outlined" />
+                                    <MudSelect T="CloudProvider" @bind-Value="_newService.Provider" Label="Provider" Variant="Variant.Outlined">
+                                        <MudSelectItem Value="CloudProvider.Aws">AWS</MudSelectItem>
+                                        <MudSelectItem Value="CloudProvider.Azure">Azure</MudSelectItem>
+                                        <MudSelectItem Value="CloudProvider.Gcp">GCP</MudSelectItem>
+                                    </MudSelect>
+                                    <MudNumericField @bind-Value="_newService.EstimatedCost"
+                                                     Label="@($"Monthly estimate ({_editing.Currency})")"
+                                                     Variant="Variant.Outlined" />
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                                               Disabled="@(string.IsNullOrWhiteSpace(_newService.Name))" OnClick="AddService">
+                                        Add service
+                                    </MudButton>
+                                </div>
+                            </div>
+                        </section>
+                    }
+                    else if (_editorSection == ProjectEditorSection.Budgets)
+                    {
+                        <section class="fx-editor-section">
+                            <div class="fx-editor-section-head">
+                                <div>
+                                    <span>Spend guardrails</span>
+                                    <h3>Budgets and alerts</h3>
+                                    <p>Set clear limits and choose when the project should start warning you.</p>
+                                </div>
+                                <span class="fx-editor-step">@_editing.Budgets.Count configured</span>
+                            </div>
+
+                            @if (_editing.Budgets.Count == 0)
+                            {
+                                <div class="fx-editor-empty compact">
+                                    <MudIcon Icon="@Icons.Material.Filled.Shield" />
+                                    <strong>No budget guardrail yet</strong>
+                                    <span>Add one below to track spend against a cap.</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="fx-project-budget-list">
+                                    @foreach (var b in _editing.Budgets)
+                                    {
+                                        <article class="fx-project-budget-card">
+                                            <header>
+                                                <div>
+                                                    <span>Budget guardrail</span>
+                                                    <strong>@(string.IsNullOrWhiteSpace(b.Name) ? "Untitled budget" : b.Name)</strong>
+                                                </div>
+                                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                                               aria-label="Remove budget" OnClick="@(() => RemoveBudget(b))" />
+                                            </header>
+                                            <div class="fx-project-budget-fields">
+                                                <MudTextField @bind-Value="b.Name" Label="Budget name" Variant="Variant.Outlined" />
+                                                <MudNumericField @bind-Value="b.Amount" Label="@($"Amount ({_editing.Currency})")"
+                                                                 Variant="Variant.Outlined" />
+                                                <MudSelect T="BudgetPeriod" @bind-Value="b.Period" Label="Period" Variant="Variant.Outlined">
+                                                    <MudSelectItem Value="BudgetPeriod.Monthly">Monthly</MudSelectItem>
+                                                    <MudSelectItem Value="BudgetPeriod.Quarterly">Quarterly</MudSelectItem>
+                                                    <MudSelectItem Value="BudgetPeriod.Annual">Annual</MudSelectItem>
+                                                </MudSelect>
+                                                <MudTextField @bind-Value="b.Thresholds" Label="Alert levels (%)"
+                                                              HelperText="Comma separated, e.g. 50,80,100" Variant="Variant.Outlined" />
+                                            </div>
+                                        </article>
+                                    }
+                                </div>
+                            }
+
+                            <div class="fx-editor-composer">
+                                <div class="fx-editor-composer-head">
+                                    <div>
+                                        <MudIcon Icon="@Icons.Material.Filled.Shield" Size="Size.Small" />
+                                        <strong>Add a budget</strong>
+                                    </div>
+                                    <span>New budgets start enabled with 50%, 80% and 100% alerts.</span>
+                                </div>
+                                <div class="fx-project-budget-composer">
+                                    <MudTextField @bind-Value="_newBudget.Name" Label="Budget name" Placeholder="e.g. Monthly cap"
+                                                  Variant="Variant.Outlined" />
+                                    <MudNumericField @bind-Value="_newBudget.Amount" Label="@($"Amount ({_editing.Currency})")"
+                                                     Variant="Variant.Outlined" />
+                                    <MudSelect T="BudgetPeriod" @bind-Value="_newBudget.Period" Label="Period" Variant="Variant.Outlined">
+                                        <MudSelectItem Value="BudgetPeriod.Monthly">Monthly</MudSelectItem>
+                                        <MudSelectItem Value="BudgetPeriod.Quarterly">Quarterly</MudSelectItem>
+                                        <MudSelectItem Value="BudgetPeriod.Annual">Annual</MudSelectItem>
+                                    </MudSelect>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                                               OnClick="AddBudget">Add budget</MudButton>
+                                </div>
+                            </div>
+                        </section>
+                    }
+                    else
+                    {
+                        <section class="fx-editor-section">
+                            <div class="fx-editor-section-head">
+                                <div>
+                                    <span>Connected inventory</span>
+                                    <h3>Bring in cloud resources</h3>
+                                    <p>Discover existing resources and group them into this project without duplicating cloud data.</p>
+                                </div>
+                                <span class="fx-editor-step">@_accounts.Count accounts</span>
+                            </div>
+
+                            @if (_accounts.Count == 0)
+                            {
+                                <div class="fx-editor-empty">
+                                    <MudIcon Icon="@Icons.Material.Filled.CloudQueue" />
+                                    <strong>No cloud accounts connected</strong>
+                                    <span>Connect an AWS, Azure or GCP account from Cloud Services before importing resources.</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="fx-editor-surface">
+                                    <div class="fx-project-discovery-controls">
+                                        <MudSelect T="int?" @bind-Value="_discoverAccountId" Label="Connected account"
+                                                   Variant="Variant.Outlined">
+                                            @foreach (var a in _accounts)
+                                            {
+                                                <MudSelectItem T="int?" Value="@a.Id">@a.DisplayName (@ProviderLabel(a.Provider))</MudSelectItem>
+                                            }
+                                        </MudSelect>
+                                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                                   StartIcon="@Icons.Material.Filled.Search" OnClick="DiscoverAsync"
+                                                   Disabled="@(_discovering || _discoverAccountId is null)">
+                                            @(_discovering ? "Discovering…" : "Discover resources")
+                                        </MudButton>
+                                    </div>
+                                </div>
+                            }
+
+                            @if (_discovered is not null)
+                            {
+                                @if (_discovered.Count == 0)
+                                {
+                                    <div class="fx-editor-empty compact">
+                                        <MudIcon Icon="@Icons.Material.Filled.Search" />
+                                        <strong>No resources found</strong>
+                                        <span>Try another connected account or sync the account again.</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="fx-project-resource-toolbar">
+                                        <div>
+                                            <strong>Discovered resources</strong>
+                                            <span>Select the resources to include in this project.</span>
+                                        </div>
+                                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                                                   OnClick="AddSelectedResources" Disabled="@(_selected.Count == 0)">
+                                            Add @_selected.Count selected
+                                        </MudButton>
+                                    </div>
+                                    <div class="fx-project-resource-grid">
+                                        @foreach (var r in _discovered)
+                                        {
+                                            <div class="fx-project-resource-card @(_selected.Contains(r.ExternalId) ? "selected" : "")">
+                                                <MudCheckBox T="bool" Value="@_selected.Contains(r.ExternalId)"
+                                                             ValueChanged="@(v => Toggle(r.ExternalId, v))" />
+                                                <div>
+                                                    <span class="fx-chip @r.Provider.ToString().ToLower()">@ProviderLabel(r.Provider)</span>
+                                                    <strong>@r.Name</strong>
+                                                    <span>@r.ResourceType</span>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            }
+                        </section>
+                    }
+                </main>
+            </div>
         </ChildContent>
         <FooterContent>
             <MudButton OnClick="CloseEditor">Cancel</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Save</MudButton>
+            @if (_editorSection != ProjectEditorSection.Basics)
+            {
+                <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="PreviousSection">Back</MudButton>
+            }
+            @if (_editorSection != ProjectEditorSection.CloudResources)
+            {
+                <MudButton Variant="Variant.Outlined" EndIcon="@Icons.Material.Filled.ArrowForward"
+                           OnClick="NextSection">Next</MudButton>
+            }
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="@(string.IsNullOrWhiteSpace(_editing.Name))" OnClick="SaveAsync">
+                Save project
+            </MudButton>
         </FooterContent>
     </AppModal>
 }
@@ -194,12 +421,40 @@
     private Project? _editing;
     private Service _newService = new();
     private Budget _newBudget = new() { Thresholds = "50,80,100" };
+    private ProjectEditorSection _editorSection = ProjectEditorSection.Basics;
 
     // "Choose existing resources" state
     private int? _discoverAccountId;
     private bool _discovering;
     private IReadOnlyList<DiscoveredResource>? _discovered;
     private readonly HashSet<string> _selected = new();
+
+    private enum ProjectEditorSection
+    {
+        Basics,
+        Services,
+        Budgets,
+        CloudResources
+    }
+
+    private int ManualServiceCount
+        => _editing?.Services.Count(s => s.Source == ServiceSource.Manual) ?? 0;
+
+    private int ConnectedServiceCount
+        => _editing?.Services.Count(s => s.Source == ServiceSource.Connected) ?? 0;
+
+    private string ProjectDisplayName
+        => string.IsNullOrWhiteSpace(_editing?.Name) ? "Untitled project" : _editing!.Name;
+
+    private string ProjectSummary
+    {
+        get
+        {
+            if (_editing is null) return "";
+            var client = _clients.FirstOrDefault(c => c.Id == _editing.ClientId)?.Name ?? "No client assigned";
+            return $"{client} · {_editing.Currency} reporting";
+        }
+    }
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -219,9 +474,38 @@
     private string AccountName(int? accountId)
         => _accounts.FirstOrDefault(a => a.Id == accountId)?.DisplayName ?? "cloud account";
 
+    private static string ProviderLabel(CloudProvider provider) => provider switch
+    {
+        CloudProvider.Aws => "AWS",
+        CloudProvider.Azure => "Azure",
+        CloudProvider.Gcp => "GCP",
+        _ => provider.ToString()
+    };
+
+    private static string StatusClass(ProjectStatus status)
+        => status.ToString().ToLowerInvariant();
+
+    private string SectionClass(ProjectEditorSection section)
+        => $"fx-project-editor-nav-item {(_editorSection == section ? "active" : "")}";
+
+    private void OpenSection(ProjectEditorSection section) => _editorSection = section;
+
+    private void PreviousSection()
+    {
+        if (_editorSection > ProjectEditorSection.Basics)
+            _editorSection = (ProjectEditorSection)((int)_editorSection - 1);
+    }
+
+    private void NextSection()
+    {
+        if (_editorSection < ProjectEditorSection.CloudResources)
+            _editorSection = (ProjectEditorSection)((int)_editorSection + 1);
+    }
+
     private void Edit(Project p)
     {
         _editing = p;
+        _editorSection = ProjectEditorSection.Basics;
         _newService = new Service();
         _newBudget = new Budget { Thresholds = "50,80,100", Period = BudgetPeriod.Monthly };
         _discovered = null;
@@ -274,6 +558,7 @@
         Snackbar.Add($"Added {_selected.Count} resource(s)", Severity.Success);
         _selected.Clear();
         _discovered = null;
+        _editorSection = ProjectEditorSection.Services;
     }
 
     private void AddService()
@@ -314,6 +599,7 @@
         if (project.Id == 0)
         {
             // New project: the whole graph (services + budgets) is inserted together.
+            foreach (var s in project.Services) s.Currency = project.Currency;
             foreach (var b in project.Budgets) b.Currency = project.Currency;
             db.Projects.Add(project);
             await db.SaveChangesAsync();

@@ -38,7 +38,8 @@
         {
             var p = _points[i];
             var idx = i;
-            <div class="fx-pacing-hit" style="left:@F(p.X)%"
+            <div class="fx-pacing-hit @(idx == 0 ? "is-first" : "") @(idx == _points.Count - 1 ? "is-last" : "")"
+                 style="left:@F(p.X)%"
                  @onmouseover="@(() => _hover = idx)" @onmouseout="@(() => _hover = null)">
                 @if (_hover == idx)
                 {
@@ -142,6 +143,15 @@
         background: var(--fx-text); color: var(--fx-surface); padding: 6px 9px; border-radius: 9px;
         font-size: 11px; white-space: nowrap; display: flex; flex-direction: column; gap: 1px; z-index: 5;
         box-shadow: var(--fx-shadow);
+    }
+    .fx-pacing-hit.is-first .fx-pacing-tip {
+        left: 50%; transform: translate(0, 8px); align-items: flex-start;
+    }
+    .fx-pacing-hit.is-last .fx-pacing-tip {
+        right: 50%; left: auto; transform: translate(0, 8px); align-items: flex-end;
+    }
+    .fx-pacing-hit.is-first.is-last .fx-pacing-tip {
+        right: auto; left: 50%; transform: translate(-50%, 8px); align-items: stretch;
     }
     .fx-pacing-tip span { font-weight: 700; }
     .fx-pacing-tip-ideal { opacity: .7; font-weight: 600 !important; }

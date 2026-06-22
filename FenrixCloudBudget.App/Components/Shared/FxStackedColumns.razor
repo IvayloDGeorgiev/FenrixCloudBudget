@@ -13,7 +13,7 @@
             var d = _days[i];
             var idx = i;
             var hPct = _max > 0 ? d.Total / _max * 100 : 0;
-            <div class="fx-sc-col @(_hover == idx ? "is-hover" : "")"
+            <div class="fx-sc-col @(_hover == idx ? "is-hover" : "") @(idx == 0 ? "is-first" : "") @(idx == _days.Count - 1 ? "is-last" : "")"
                  @onmouseover="@(() => _hover = idx)" @onmouseout="@(() => _hover = null)">
                 <div class="fx-sc-tip">
                     <strong>@d.Label</strong>
@@ -86,7 +86,8 @@
 
 <style>
     .fx-sc { width: 100%; }
-    .fx-sc-plot { display: flex; align-items: flex-end; gap: 3px; height: 230px; padding-top: 6px; }
+    /* Generous top padding leaves room for the hover tooltip above the tallest bars. */
+    .fx-sc-plot { display: flex; align-items: flex-end; gap: 3px; height: 240px; padding-top: 92px; }
     .fx-sc-col { position: relative; flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
     .fx-sc-stack {
         width: 100%; display: flex; flex-direction: column-reverse; border-radius: 5px 5px 0 0; overflow: hidden;
@@ -103,6 +104,15 @@
         box-shadow: var(--fx-shadow);
     }
     .fx-sc-col.is-hover .fx-sc-tip { display: flex; }
+    .fx-sc-col.is-first .fx-sc-tip {
+        left: 0; transform: translate(0, -6px); align-items: flex-start;
+    }
+    .fx-sc-col.is-last .fx-sc-tip {
+        right: 0; left: auto; transform: translate(0, -6px); align-items: flex-end;
+    }
+    .fx-sc-col.is-first.is-last .fx-sc-tip {
+        right: auto; left: 50%; transform: translate(-50%, -6px); align-items: stretch;
+    }
     .fx-sc-tip span { display: flex; align-items: center; gap: 6px; }
     .fx-sc-tip i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
     .fx-sc-tip b { margin-left: auto; }

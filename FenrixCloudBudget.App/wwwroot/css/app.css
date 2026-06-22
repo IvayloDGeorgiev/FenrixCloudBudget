@@ -1493,6 +1493,540 @@ button,
     color: var(--fx-primary);
 }
 
+/* Project workspace editor: a sectioned, responsive alternative to the previous long form. */
+.fx-project-editor {
+    min-height: 610px;
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    color: var(--fx-text);
+}
+
+.fx-project-editor-summary {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--fx-border);
+    background:
+        radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--fx-primary) 16%, transparent), transparent 35%),
+        linear-gradient(120deg, color-mix(in srgb, var(--fx-surface-2) 86%, transparent), var(--fx-surface));
+}
+
+.fx-project-editor-mark {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--fx-primary) 42%, var(--fx-border));
+    border-radius: 15px;
+    color: var(--fx-primary);
+    background: color-mix(in srgb, var(--fx-primary) 14%, var(--fx-surface));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+
+.fx-project-editor-copy {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+}
+
+.fx-project-editor-kicker,
+.fx-editor-section-head > div > span {
+    color: var(--fx-primary);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.fx-project-editor-copy strong {
+    overflow: hidden;
+    font-family: var(--fx-display-font);
+    font-size: 20px;
+    letter-spacing: -.025em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fx-project-editor-copy > span:last-child {
+    color: var(--fx-text-muted);
+    font-size: 12px;
+}
+
+.fx-project-editor-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.fx-project-editor-stats > div {
+    min-width: 58px;
+    display: grid;
+    gap: 1px;
+    padding: 7px 10px;
+    border: 1px solid var(--fx-border);
+    border-radius: 10px;
+    text-align: center;
+    background: color-mix(in srgb, var(--fx-surface-solid) 78%, transparent);
+}
+
+.fx-project-editor-stats strong {
+    font-size: 13px;
+}
+
+.fx-project-editor-stats div span {
+    color: var(--fx-text-muted);
+    font-size: 9px;
+    text-transform: uppercase;
+}
+
+.fx-project-status,
+.fx-source-tag {
+    display: inline-flex;
+    align-items: center;
+    width: max-content;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 780;
+    letter-spacing: .04em;
+    white-space: nowrap;
+}
+
+.fx-project-status {
+    padding: 6px 10px;
+    color: var(--fx-ok);
+    background: color-mix(in srgb, var(--fx-ok) 15%, transparent);
+}
+
+.fx-project-status.paused {
+    color: var(--fx-warn);
+    background: color-mix(in srgb, var(--fx-warn) 16%, transparent);
+}
+
+.fx-project-status.archived {
+    color: var(--fx-text-muted);
+    background: color-mix(in srgb, var(--fx-text-muted) 14%, transparent);
+}
+
+.fx-project-editor-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 20px 14px;
+    border-right: 1px solid var(--fx-border);
+    background: color-mix(in srgb, var(--fx-surface-2) 70%, var(--fx-surface));
+}
+
+.fx-project-editor-nav-item {
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 11px;
+    padding: 12px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    color: var(--fx-text-muted);
+    text-align: left;
+    background: transparent;
+    cursor: pointer;
+    transition: color .16s ease, border-color .16s ease, background .16s ease, transform .16s ease;
+}
+
+.fx-project-editor-nav-item:hover {
+    color: var(--fx-text);
+    background: color-mix(in srgb, var(--fx-primary) 7%, transparent);
+    transform: translateX(2px);
+}
+
+.fx-project-editor-nav-item.active {
+    border-color: color-mix(in srgb, var(--fx-primary) 30%, var(--fx-border));
+    color: var(--fx-text);
+    background: color-mix(in srgb, var(--fx-primary) 13%, var(--fx-surface));
+    box-shadow: inset 3px 0 0 var(--fx-primary);
+}
+
+.fx-project-editor-nav-item > .mud-icon-root {
+    color: var(--fx-primary);
+}
+
+.fx-project-editor-nav-item > span {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+}
+
+.fx-project-editor-nav-item strong {
+    font-size: 12px;
+}
+
+.fx-project-editor-nav-item small {
+    overflow: hidden;
+    color: var(--fx-text-muted);
+    font-size: 9px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fx-project-editor-nav-item b {
+    color: color-mix(in srgb, var(--fx-text-muted) 62%, transparent);
+    font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+    font-size: 9px;
+}
+
+.fx-project-editor-content {
+    min-width: 0;
+    padding: 28px;
+}
+
+.fx-editor-section {
+    display: grid;
+    gap: 20px;
+    animation: fx-page-in .2s var(--fx-motion) both;
+}
+
+.fx-editor-section-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.fx-editor-section-head h3 {
+    margin: 4px 0 5px;
+    font-family: var(--fx-display-font);
+    font-size: 22px;
+    letter-spacing: -.035em;
+}
+
+.fx-editor-section-head p {
+    max-width: 650px;
+    margin: 0;
+    color: var(--fx-text-muted);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.fx-editor-step {
+    flex: 0 0 auto;
+    padding: 6px 10px;
+    border: 1px solid var(--fx-border);
+    border-radius: 999px;
+    color: var(--fx-text-muted);
+    font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+    font-size: 9px;
+    background: var(--fx-surface-2);
+}
+
+.fx-editor-surface,
+.fx-editor-composer,
+.fx-project-service-card,
+.fx-project-budget-card {
+    border: 1px solid var(--fx-border);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--fx-surface-2) 82%, transparent);
+}
+
+.fx-editor-surface {
+    padding: 22px;
+}
+
+.fx-editor-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.fx-editor-span-2 {
+    grid-column: 1 / -1;
+}
+
+.fx-editor-field-note {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 11px 13px;
+    border-radius: 11px;
+    color: var(--fx-text-muted);
+    font-size: 10px;
+    line-height: 1.45;
+    background: color-mix(in srgb, var(--fx-primary) 8%, transparent);
+}
+
+.fx-editor-field-note .mud-icon-root {
+    flex: 0 0 auto;
+    color: var(--fx-primary);
+}
+
+.fx-editor-empty {
+    min-height: 150px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 6px;
+    padding: 28px;
+    border: 1px dashed var(--fx-border-strong);
+    border-radius: 16px;
+    color: var(--fx-text-muted);
+    text-align: center;
+    background: color-mix(in srgb, var(--fx-surface-2) 55%, transparent);
+}
+
+.fx-editor-empty.compact {
+    min-height: 112px;
+}
+
+.fx-editor-empty .mud-icon-root {
+    margin-bottom: 5px;
+    color: var(--fx-primary);
+    font-size: 30px;
+}
+
+.fx-editor-empty strong {
+    color: var(--fx-text);
+    font-size: 13px;
+}
+
+.fx-editor-empty span {
+    max-width: 520px;
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.fx-project-service-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.fx-project-budget-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.fx-project-service-card,
+.fx-project-budget-card {
+    min-width: 0;
+    padding: 16px;
+}
+
+.fx-project-service-card {
+    border-top: 2px solid color-mix(in srgb, var(--fx-primary) 48%, var(--fx-border));
+}
+
+.fx-project-service-card.synced {
+    border-top-color: color-mix(in srgb, var(--fx-ok) 55%, var(--fx-border));
+    background: color-mix(in srgb, var(--fx-surface) 88%, transparent);
+}
+
+.fx-project-service-card > header,
+.fx-project-budget-card > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 32px;
+    margin-bottom: 13px;
+}
+
+.fx-project-card-tags {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.fx-source-tag {
+    padding: 4px 8px;
+}
+
+.fx-source-tag.manual {
+    color: var(--fx-primary);
+    background: color-mix(in srgb, var(--fx-primary) 13%, transparent);
+}
+
+.fx-source-tag.synced {
+    color: var(--fx-ok);
+    background: color-mix(in srgb, var(--fx-ok) 13%, transparent);
+}
+
+.fx-project-service-fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(120px, .75fr) minmax(150px, .9fr);
+    gap: 10px;
+}
+
+.fx-project-synced-service {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) auto;
+    gap: 14px;
+}
+
+.fx-project-synced-service > div {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+}
+
+.fx-project-synced-service span,
+.fx-project-budget-card header span {
+    color: var(--fx-text-muted);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+}
+
+.fx-project-synced-service strong {
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fx-project-budget-card > header > div {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+}
+
+.fx-project-budget-card header strong {
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fx-project-budget-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.fx-editor-composer {
+    overflow: hidden;
+    border-style: dashed;
+}
+
+.fx-editor-composer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--fx-border);
+    background: color-mix(in srgb, var(--fx-primary) 7%, transparent);
+}
+
+.fx-editor-composer-head > div {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.fx-editor-composer-head strong {
+    font-size: 12px;
+}
+
+.fx-editor-composer-head > span {
+    color: var(--fx-text-muted);
+    font-size: 10px;
+}
+
+.fx-project-service-composer,
+.fx-project-budget-composer {
+    display: grid;
+    align-items: end;
+    gap: 11px;
+    padding: 16px;
+}
+
+.fx-project-service-composer {
+    grid-template-columns: minmax(0, 1.35fr) minmax(125px, .7fr) minmax(160px, .85fr) auto;
+}
+
+.fx-project-budget-composer {
+    grid-template-columns: minmax(0, 1.25fr) minmax(160px, .8fr) minmax(140px, .75fr) auto;
+}
+
+.fx-project-discovery-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 12px;
+}
+
+.fx-project-resource-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.fx-project-resource-toolbar > div {
+    display: grid;
+    gap: 2px;
+}
+
+.fx-project-resource-toolbar strong {
+    font-size: 13px;
+}
+
+.fx-project-resource-toolbar span {
+    color: var(--fx-text-muted);
+    font-size: 10px;
+}
+
+.fx-project-resource-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.fx-project-resource-card {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+    padding: 13px;
+    border: 1px solid var(--fx-border);
+    border-radius: 13px;
+    background: var(--fx-surface-2);
+    transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+
+.fx-project-resource-card.selected {
+    border-color: color-mix(in srgb, var(--fx-primary) 55%, var(--fx-border));
+    background: color-mix(in srgb, var(--fx-primary) 10%, var(--fx-surface-2));
+    transform: translateY(-1px);
+}
+
+.fx-project-resource-card > div {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 5px 9px;
+}
+
+.fx-project-resource-card strong {
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fx-project-resource-card > div > span:last-child {
+    grid-column: 2;
+    color: var(--fx-text-muted);
+    font-size: 10px;
+}
+
 /* Dashboard spend-trend card + budget sparkline cell. */
 .fx-trend-card { margin-bottom: 16px; }
 .fx-trend-bottom { margin-top: var(--fx-gap); margin-bottom: 0; }
@@ -1928,6 +2462,18 @@ button,
 
 .fx-modal-large {
     width: min(820px, 100%);
+}
+
+.fx-modal-workspace {
+    width: min(1180px, 100%);
+}
+
+.fx-modal-workspace .fx-modal-body {
+    padding: 0;
+}
+
+.fx-modal-workspace .fx-modal-actions > :first-child {
+    margin-right: auto;
 }
 
 .fx-modal-head,
@@ -3062,6 +3608,186 @@ button,
 
     .fx-session-pill .mud-icon-root {
         display: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .fx-project-editor {
+        min-height: 0;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto minmax(0, 1fr);
+    }
+
+    .fx-project-editor-summary {
+        grid-column: 1;
+    }
+
+    .fx-project-editor-nav {
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 10px 14px;
+        border-right: 0;
+        border-bottom: 1px solid var(--fx-border);
+        scrollbar-width: thin;
+        scroll-snap-type: x proximity;
+    }
+
+    .fx-project-editor-nav-item {
+        min-width: 205px;
+        scroll-snap-align: start;
+    }
+
+    .fx-project-editor-nav-item:hover {
+        transform: translateY(-1px);
+    }
+
+    .fx-project-editor-nav-item.active {
+        box-shadow: inset 0 -3px 0 var(--fx-primary);
+    }
+
+    .fx-project-editor-content {
+        padding: 24px;
+    }
+
+    .fx-project-budget-list {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 700px) {
+    .fx-project-editor-summary {
+        grid-template-columns: auto minmax(0, 1fr);
+        padding: 16px 18px;
+    }
+
+    .fx-project-editor-stats {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+
+    .fx-project-editor-stats > div {
+        min-width: 0;
+        flex: 1 1 0;
+    }
+
+    .fx-project-editor-content {
+        padding: 20px 17px;
+    }
+
+    .fx-editor-section-head {
+        display: grid;
+        gap: 10px;
+    }
+
+    .fx-editor-step {
+        justify-self: start;
+    }
+
+    .fx-editor-form-grid,
+    .fx-project-service-fields,
+    .fx-project-synced-service,
+    .fx-project-budget-fields,
+    .fx-project-service-composer,
+    .fx-project-budget-composer,
+    .fx-project-discovery-controls,
+    .fx-project-resource-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .fx-editor-span-2 {
+        grid-column: auto;
+    }
+
+    .fx-project-synced-service {
+        gap: 9px;
+    }
+
+    .fx-project-synced-service strong {
+        white-space: normal;
+    }
+
+    .fx-editor-composer-head,
+    .fx-project-resource-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .fx-project-resource-toolbar .mud-button-root,
+    .fx-project-discovery-controls .mud-button-root,
+    .fx-project-service-composer .mud-button-root,
+    .fx-project-budget-composer .mud-button-root {
+        width: 100%;
+    }
+
+    .fx-project-resource-card > div {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .fx-modal-workspace .fx-modal-actions > :first-child {
+        margin-right: 0;
+    }
+
+    .fx-project-editor-summary {
+        gap: 11px;
+        padding: 14px;
+    }
+
+    .fx-project-editor-mark {
+        width: 42px;
+        height: 42px;
+        border-radius: 13px;
+    }
+
+    .fx-project-editor-copy strong {
+        font-size: 17px;
+    }
+
+    .fx-project-editor-stats {
+        overflow-x: auto;
+        padding-bottom: 2px;
+    }
+
+    .fx-project-editor-stats > div {
+        min-width: 54px;
+    }
+
+    .fx-project-status {
+        align-self: stretch;
+    }
+
+    .fx-project-editor-nav {
+        padding-inline: 9px;
+    }
+
+    .fx-project-editor-nav-item {
+        min-width: 178px;
+        padding: 10px;
+    }
+
+    .fx-project-editor-content {
+        padding: 18px 13px;
+    }
+
+    .fx-editor-section-head h3 {
+        font-size: 19px;
+    }
+
+    .fx-editor-surface,
+    .fx-project-service-card,
+    .fx-project-budget-card {
+        padding: 14px;
+        border-radius: 13px;
+    }
+
+    .fx-editor-composer-head {
+        padding: 12px 14px;
+    }
+
+    .fx-project-service-composer,
+    .fx-project-budget-composer {
+        padding: 14px;
     }
 }
 

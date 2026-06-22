@@ -12,7 +12,7 @@
             var b = _bars[i];
             var idx = i;
             var pct = _max > 0 ? b.Value / _max * 100 : 0;
-            <div class="fx-bar-col @(_hover == idx ? "is-hover" : "")"
+            <div class="fx-bar-col @(_hover == idx ? "is-hover" : "") @(idx == 0 ? "is-first" : "") @(idx == _bars.Count - 1 ? "is-last" : "")"
                  @onmouseover="@(() => _hover = idx)" @onmouseout="@(() => _hover = null)">
                 <div class="fx-bar-tooltip">@b.Label<span>@Format(b.Value)</span></div>
                 <div class="fx-bar-track">
@@ -84,4 +84,17 @@
     }
     .fx-bar-tooltip span { font-weight: 800; }
     .fx-bar-col.is-hover .fx-bar-tooltip { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+    .fx-bar-col.is-first .fx-bar-tooltip {
+        left: 0; transform: translate(0, -100%) scale(.96); transform-origin: bottom left; align-items: flex-start;
+    }
+    .fx-bar-col.is-first.is-hover .fx-bar-tooltip { transform: translate(0, -100%) scale(1); }
+    .fx-bar-col.is-last .fx-bar-tooltip {
+        right: 0; left: auto; transform: translate(0, -100%) scale(.96); transform-origin: bottom right; align-items: flex-end;
+    }
+    .fx-bar-col.is-last.is-hover .fx-bar-tooltip { transform: translate(0, -100%) scale(1); }
+    .fx-bar-col.is-first.is-last .fx-bar-tooltip {
+        right: auto; left: 50%; transform: translate(-50%, -100%) scale(.96);
+        transform-origin: bottom center; align-items: center;
+    }
+    .fx-bar-col.is-first.is-last.is-hover .fx-bar-tooltip { transform: translate(-50%, -100%) scale(1); }
 </style>
