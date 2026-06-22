@@ -3,100 +3,114 @@
 @inject CloudConnectionService Connections
 @inject ISnackbar Snackbar
 
-<div style="display:flex;align-items:center;gap:12px">
-    <div>
+<section class="fx-page-header">
+    <div class="fx-page-heading">
+        <div class="fx-eyebrow">Provider connections</div>
         <h1 class="fx-page-title">Cloud Services</h1>
         <p class="fx-page-sub">Connect AWS, Azure & GCP accounts, discover resources, and map them to projects.</p>
     </div>
-    <MudSpacer />
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AddLink" OnClick="OpenConnect">
+    <MudButton Class="fx-page-action" Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.AddLink" OnClick="OpenConnect">
         Connect account
     </MudButton>
-</div>
+</section>
 
 <div class="fx-tiles">
     @foreach (var a in _accounts)
     {
-        <div class="fx-tile">
+        <article class="fx-tile fx-cloud-account-card">
             <span class="fx-chip @a.Provider.ToString().ToLower()">@a.Provider</span>
             <div class="fx-tile-title">@a.DisplayName</div>
-            <div style="font-size:12px;color:var(--fx-text-muted)">@a.AccountOrSubscriptionId</div>
-            <div style="font-size:12px">Key: @(a.SecretHint ?? "—")</div>
-            <div style="font-size:12px">@(a.LastSyncedUtc is null ? "Never synced" : $"Synced {a.LastSyncedUtc:yyyy-MM-dd}")</div>
-            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Search"
+            <div class="fx-cloud-account-id">@a.AccountOrSubscriptionId</div>
+            <div class="fx-cloud-account-meta">Key: @(a.SecretHint ?? "—")</div>
+            <div class="fx-cloud-account-meta">@(a.LastSyncedUtc is null ? "Never synced" : $"Synced {a.LastSyncedUtc:yyyy-MM-dd}")</div>
+            <MudButton Class="fx-card-button" Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Search"
                        OnClick="@(() => DiscoverAsync(a))">Discover resources</MudButton>
-        </div>
+        </article>
     }
     @if (_accounts.Count == 0) { <Empty Text="No cloud accounts connected yet." /> }
 </div>
 
 @if (_discovered is not null)
 {
-    <div class="fx-card" style="margin-top:16px">
-        <h3>Discovered resources — @_discoveredAccount?.DisplayName (@_discovered.Count)</h3>
+    <section class="fx-card fx-discovered-section">
+        <div class="fx-card-head">
+            <div>
+                <h2 class="fx-card-title">Discovered resources</h2>
+                <div class="fx-card-kicker">@_discoveredAccount?.DisplayName · @_discovered.Count found</div>
+            </div>
+            <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.Search" Size="Size.Small" /></div>
+        </div>
         @if (_discovered.Count == 0)
         {
             <Empty Text="No resources returned for this account/scope." />
         }
         else
         {
-            <MudSimpleTable Dense="true" Hover="true" Style="max-height:360px;overflow:auto">
-                <thead><tr><th>Name</th><th>Type</th><th>Region</th><th>Resource group</th></tr></thead>
-                <tbody>
-                    @foreach (var r in _discovered)
-                    {
-                        <tr>
-                            <td>@r.Name</td>
-                            <td>@r.ResourceType</td>
-                            <td>@r.Region</td>
-                            <td>@r.ResourceGroup</td>
-                        </tr>
-                    }
-                </tbody>
-            </MudSimpleTable>
+            <div class="fx-resource-grid">
+                @foreach (var r in _discovered)
+                {
+                    <article class="fx-resource-card">
+                        <div class="fx-resource-icon"><MudIcon Icon="@Icons.Material.Filled.CloudQueue" Size="Size.Small" /></div>
+                        <div class="fx-resource-copy">
+                            <strong>@r.Name</strong>
+                            <span>@r.ResourceType</span>
+                        </div>
+                        <div class="fx-resource-meta">
+                            <span>@(string.IsNullOrWhiteSpace(r.Region) ? "Global" : r.Region)</span>
+                            <span>@(string.IsNullOrWhiteSpace(r.ResourceGroup) ? "No resource group" : r.ResourceGroup)</span>
+                        </div>
+                    </article>
+                }
+            </div>
             <MudText Typo="Typo.caption" Class="mt-2">
                 Add these to a project from <strong>Projects → open a project → Choose existing resources</strong>.
             </MudText>
         }
-    </div>
+    </section>
 }
 
-<MudDialog @bind-Visible="_connectOpen" Options="new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true }">
-    <TitleContent>Connect cloud account</TitleContent>
-    <DialogContent>
-        <MudSelect T="CloudProvider" @bind-Value="_provider" Label="Provider" @bind-Value:after="OnProviderChanged">
-            <MudSelectItem Value="CloudProvider.Aws">AWS</MudSelectItem>
-            <MudSelectItem Value="CloudProvider.Azure">Azure</MudSelectItem>
-            <MudSelectItem Value="CloudProvider.Gcp">GCP</MudSelectItem>
-        </MudSelect>
-        <MudTextField @bind-Value="_displayName" Label="Display name" Placeholder="e.g. Acme production" />
+@if (_connectOpen)
+{
+    <AppModal Title="Connect cloud account"
+              Width="small"
+              CanCancel="@(!_busy)"
+              OnCancel="CloseConnect">
+        <ChildContent>
+            <MudSelect T="CloudProvider" @bind-Value="_provider" Label="Provider" @bind-Value:after="OnProviderChanged">
+                <MudSelectItem Value="CloudProvider.Aws">AWS</MudSelectItem>
+                <MudSelectItem Value="CloudProvider.Azure">Azure</MudSelectItem>
+                <MudSelectItem Value="CloudProvider.Gcp">GCP</MudSelectItem>
+            </MudSelect>
+            <MudTextField @bind-Value="_displayName" Label="Display name" Placeholder="e.g. Acme production" />
 
-        @foreach (var f in _schema)
-        {
-            <MudTextField T="string" Label="@(f.Label + (f.Required ? " *" : ""))"
-                          InputType="@(f.IsSecret ? InputType.Password : InputType.Text)"
-                          Placeholder="@f.Placeholder"
-                          HelperText="@(f.IsSecret ? "Stored encrypted; shown masked after save." : null)"
-                          Value="@GetField(f.Key)" ValueChanged="v => SetField(f.Key, v)" />
-        }
+            @foreach (var f in _schema)
+            {
+                <MudTextField T="string" Label="@(f.Label + (f.Required ? " *" : ""))"
+                              InputType="@(f.IsSecret ? InputType.Password : InputType.Text)"
+                              Placeholder="@f.Placeholder"
+                              HelperText="@(f.IsSecret ? "Stored encrypted; shown masked after save." : null)"
+                              Value="@GetField(f.Key)" ValueChanged="v => SetField(f.Key, v)" />
+            }
 
-        <MudText Typo="Typo.caption" Class="mt-2">
-            Least-privilege roles: AWS <code>ce:GetCostAndUsage</code> + <code>tag:GetResources</code>;
-            Azure "Cost Management Reader"; GCP Billing Account Viewer + BigQuery roles.
-        </MudText>
+            <MudText Typo="Typo.caption" Class="mt-2">
+                Least-privilege roles: AWS <code>ce:GetCostAndUsage</code> + <code>tag:GetResources</code>;
+                Azure "Cost Management Reader"; GCP Billing Account Viewer + BigQuery roles.
+            </MudText>
 
-        @if (!string.IsNullOrEmpty(_error))
-        {
-            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert>
-        }
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="@(() => _connectOpen = false)">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ConnectAsync" Disabled="_busy">
-            @(_busy ? "Connecting…" : "Connect & validate")
-        </MudButton>
-    </DialogActions>
-</MudDialog>
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert>
+            }
+        </ChildContent>
+        <FooterContent>
+            <MudButton Disabled="_busy" OnClick="CloseConnect">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ConnectAsync" Disabled="_busy">
+                @(_busy ? "Connecting…" : "Connect & validate")
+            </MudButton>
+        </FooterContent>
+    </AppModal>
+}
 
 @code {
     private List<CloudAccount> _accounts = new();
@@ -127,6 +141,12 @@
         _connectOpen = true;
     }
 
+    private void CloseConnect()
+    {
+        if (!_busy)
+            _connectOpen = false;
+    }
+
     private void OnProviderChanged()
     {
         _fields.Clear();
@@ -149,6 +169,7 @@
                 return;
             }
             _connectOpen = false;
+            await InvokeAsync(StateHasChanged);
             Snackbar.Add("Account connected", Severity.Success);
             await LoadAsync();
         }

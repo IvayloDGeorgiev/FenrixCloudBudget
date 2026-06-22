@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @inject ThemeService Theme
+@inject AuthSessionService Auth
 @inject IJSRuntime JS
 @inject IDbContextFactory<AppDbContext> DbFactory
 @implements IDisposable
@@ -21,9 +22,16 @@
             <div class="fx-topbar-actions">
                 <a class="fx-command-pill" href="/settings">
                     <span class="fx-theme-swatch" style="background:var(--fx-gradient)"></span>
-                    @Theme.Current.Name
+                    <span class="fx-command-label">@Theme.Current.Name</span>
                 </a>
-                <div class="fx-avatar" title="Local workspace">IV</div>
+                <button type="button" class="fx-session-pill" title="Sign out" @onclick="Auth.Logout">
+                    <span class="fx-avatar">@Initials()</span>
+                    <span class="fx-session-copy">
+                        <strong>@(Auth.CurrentUser?.DisplayName ?? "Workspace user")</strong>
+                        <small>@Auth.CurrentUser?.Role · Sign out</small>
+                    </span>
+                    <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" />
+                </button>
             </div>
         </header>
 
@@ -70,6 +78,15 @@
             "document.documentElement.setAttribute",
             "data-theme",
             Theme.CurrentThemeId).AsTask();
+
+    private string Initials()
+    {
+        var source = Auth.CurrentUser?.DisplayName ?? Auth.CurrentUser?.Email ?? "User";
+        var words = source.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return words.Length > 1
+            ? string.Concat(words.Take(2).Select(word => char.ToUpperInvariant(word[0])))
+            : source[..Math.Min(2, source.Length)].ToUpperInvariant();
+    }
 
     public void Dispose() => Theme.Changed -= OnThemeChanged;
 }

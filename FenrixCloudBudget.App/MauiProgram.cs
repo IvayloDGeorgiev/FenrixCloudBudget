@@ -42,6 +42,8 @@ public static class MauiProgram
         // ---- Cross-cutting services ----
         builder.Services.AddFenrixServices();
         builder.Services.AddFenrixCloud();
+        builder.Services.AddScoped<FenrixCloudBudget.Services.Cloud.CloudConnectionService>();
+        builder.Services.AddScoped<FenrixCloudBudget.Services.Sync.CostSyncService>();
         builder.Services.AddFenrixAlertScheduler(TimeSpan.FromHours(6));
 
         // ---- Platform channel implementations (override the no-op/dev defaults) ----
@@ -51,19 +53,23 @@ public static class MauiProgram
 
         // ---- App-level UI state ----
         builder.Services.AddSingleton<ThemeService>();
+        builder.Services.AddScoped<AuthSessionService>();
         builder.Services.AddScoped<AppState>();
 
         var app = builder.Build();
 
-        // Ensure DB exists/migrated and seeded before first render, then start the alert loop.
-        // (MAUI does not auto-start IHostedService, so start the scheduler explicitly.)
-        Task.Run(async () =>
-        {
-            using var scope = app.Services.CreateScope();
-            await scope.ServiceProvider.GetRequiredService<IDataProvider>().InitializeAsync();
-            await app.Services.GetRequiredService<FenrixCloudBudget.Services.Sync.AlertSchedulerService>()
-                .StartAsync(CancellationToken.None);
-        });
+        // Ensure migrations and the bootstrap administrator exist before Blazor can render
+        // the login form. MAUI does not auto-start IHostedService, so the scheduler follows
+        // in the background after deterministic database initialization.
+        using (var scope = app.Services.CreateScope())
+            scope.ServiceProvider.GetRequiredService<IDataProvider>()
+                .InitializeAsync()
+                .GetAwaiter()
+                .GetResult();
+
+        Task.Run(() => app.Services
+            .GetRequiredService<FenrixCloudBudget.Services.Sync.AlertSchedulerService>()
+            .StartAsync(CancellationToken.None));
 
         return app;
     }

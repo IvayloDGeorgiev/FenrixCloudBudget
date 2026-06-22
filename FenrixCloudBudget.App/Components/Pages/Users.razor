@@ -1,41 +1,422 @@
 @page "/users"
 @inject IDbContextFactory<AppDbContext> DbFactory
+@inject UserInvitationService Invitations
+@inject AuthSessionService Auth
+@inject ISnackbar Snackbar
 
-<h1 class="fx-page-title">Users</h1>
-<p class="fx-page-sub">Invite teammates and assign roles. Active in server / SaaS mode.</p>
+@if (!Auth.IsAdmin)
+{
+    <div class="fx-card fx-empty-state">
+        <div class="fx-empty-orbit"><MudIcon Icon="@Icons.Material.Filled.Lock" /></div>
+        <h1 class="fx-page-title">Admin access required</h1>
+        <p class="fx-page-sub">Only workspace administrators can view and manage users.</p>
+        <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary">Return home</MudButton>
+    </div>
+}
+else
+{
+    <section class="fx-page-header">
+        <div class="fx-page-heading">
+            <div class="fx-eyebrow">Workspace access</div>
+            <h1 class="fx-page-title">Users</h1>
+            <p class="fx-page-sub">Search members, promote administrators, control access and review invitations.</p>
+        </div>
+        <MudButton Class="fx-page-action" Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.PersonAdd"
+                   OnClick="OpenInvite">
+            Invite user
+        </MudButton>
+    </section>
 
-<div class="fx-card" style="margin-bottom:16px">
-    <MudAlert Severity="Severity.Info" Dense="true">
-        Multi-user, email invitations and passwordless 6-digit OTP login arrive in <strong>Phase 5</strong>
-        (they require the backend API for secure email + code validation). In local mode the app runs single-user.
-    </MudAlert>
-</div>
+    <div class="fx-card fx-section-gap">
+        <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Text">
+            The seeded <strong>admin@fenrix.local</strong> account is a bootstrap credential.
+            Another active administrator can enable or disable it, but its Admin role and seeded
+            identity are protected. Current and final active administrators cannot be locked out.
+        </MudAlert>
+    </div>
 
-<div class="fx-card">
-    @if (_users.Count == 0)
-    {
-        <Empty Text="No users yet (local single-user mode)." />
-    }
-    else
-    {
-        <MudSimpleTable Hover="true" Dense="true">
-            <thead><tr><th>Email</th><th>Role</th><th>Status</th></tr></thead>
-            <tbody>
-                @foreach (var u in _users)
+    <div class="fx-user-sections">
+        <section class="fx-card">
+            <div class="fx-card-head fx-user-section-head">
+                <div>
+                    <h2 class="fx-card-title">Administrators</h2>
+                    <div class="fx-card-kicker">@FilteredAdmins.Count() of @Admins.Count() administrator accounts</div>
+                </div>
+                <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Size="Size.Small" /></div>
+            </div>
+
+            <MudTextField @bind-Value="_adminSearch"
+                          Placeholder="Search administrators"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Immediate="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Class="mb-4" />
+
+            @if (!FilteredAdmins.Any())
+            {
+                <Empty Text="No administrators match this search." />
+            }
+            else
+            {
+                <div class="fx-user-list">
+                    @foreach (var user in FilteredAdmins)
+                    {
+                        <UserManagementRow User="user"
+                                           IsCurrentUser="@IsCurrentUser(user)"
+                                           IsSeededUser="@IsSeededUser(user)"
+                                           RoleChanged="role => ChangeRoleAsync(user, role)"
+                                           StatusToggle="@(() => ToggleStatusAsync(user))"
+                                           DeleteRequested="@(() => RequestDelete(user))" />
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="fx-card">
+            <div class="fx-card-head fx-user-section-head">
+                <div>
+                    <h2 class="fx-card-title">Members</h2>
+                    <div class="fx-card-kicker">@FilteredMembers.Count() of @Members.Count() member accounts</div>
+                </div>
+                <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.Groups" Size="Size.Small" /></div>
+            </div>
+
+            <MudTextField @bind-Value="_memberSearch"
+                          Placeholder="Search members"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Immediate="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Class="mb-4" />
+
+            @if (!FilteredMembers.Any())
+            {
+                <Empty Text="No members match this search." />
+            }
+            else
+            {
+                <div class="fx-user-list">
+                    @foreach (var user in FilteredMembers)
+                    {
+                        <UserManagementRow User="user"
+                                           IsCurrentUser="@IsCurrentUser(user)"
+                                           IsSeededUser="@IsSeededUser(user)"
+                                           RoleChanged="role => ChangeRoleAsync(user, role)"
+                                           StatusToggle="@(() => ToggleStatusAsync(user))"
+                                           DeleteRequested="@(() => RequestDelete(user))" />
+                    }
+                </div>
+            }
+        </section>
+    </div>
+
+    <section class="fx-card fx-section-top">
+        <div class="fx-card-head">
+            <div>
+                <h2 class="fx-card-title">Pending invitations</h2>
+                <div class="fx-card-kicker">Codes expire after 24 hours</div>
+            </div>
+            <div class="fx-card-action"><MudIcon Icon="@Icons.Material.Filled.MarkEmailUnread" Size="Size.Small" /></div>
+        </div>
+
+        @if (_pending.Count == 0)
+        {
+            <Empty Text="No invitations are waiting." />
+        }
+        else
+        {
+            <div class="fx-invitation-grid">
+                @foreach (var invitation in _pending)
                 {
-                    <tr><td>@u.Email</td><td>@u.Role</td><td>@u.Status</td></tr>
+                    <div class="fx-invitation-card">
+                        <div class="fx-invitation-copy">
+                            <strong>@invitation.Email</strong>
+                            <div>@invitation.Role · expires @invitation.ExpiresUtc.LocalDateTime.ToString("dd MMM, HH:mm")</div>
+                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                       Color="Color.Error"
+                                       Size="Size.Small"
+                                       title="Revoke invitation"
+                                       aria-label="Revoke invitation"
+                                       OnClick="@(() => RevokeAsync(invitation.Id))" />
+                    </div>
                 }
-            </tbody>
-        </MudSimpleTable>
-    }
-</div>
+            </div>
+        }
+    </section>
+}
+
+@if (_inviteDialogOpen)
+{
+    <AppModal Title="Invite a teammate"
+              Width="compact"
+              CanCancel="@(!_inviting)"
+              OnCancel="CloseInvite">
+        <ChildContent>
+            <MudTextField @bind-Value="_inviteEmail"
+                          Label="Email address"
+                          InputType="InputType.Email"
+                          Required="true"
+                          Immediate="true" />
+            <MudSelect T="UserRole" @bind-Value="_inviteRole" Label="Workspace role" Class="mt-3">
+                <MudSelectItem Value="UserRole.Member">Member</MudSelectItem>
+                <MudSelectItem Value="UserRole.Admin">Admin</MudSelectItem>
+            </MudSelect>
+            <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Text" Class="mt-3">
+                Admins can manage access and promote users. Members cannot see the Users tab.
+            </MudAlert>
+        </ChildContent>
+        <FooterContent>
+            <MudButton Disabled="_inviting" OnClick="CloseInvite">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Send"
+                       Disabled="_inviting"
+                       OnClick="InviteAsync">
+                @(_inviting ? "Sending…" : "Send invitation")
+            </MudButton>
+        </FooterContent>
+    </AppModal>
+}
+
+@if (_deleting is not null)
+{
+    <ConfirmDeleteModal Title="Delete user?"
+                        ItemName="@(_deleting.DisplayName ?? _deleting.Email)"
+                        Message="This removes the user and revokes all pending invitations for their email address."
+                        ConfirmText="Delete user"
+                        CancelText="Keep user"
+                        Icon="@Icons.Material.Filled.PersonRemove"
+                        OnCancel="CancelDelete"
+                        OnConfirm="ConfirmDeleteAsync" />
+}
 
 @code {
-    private List<User> _users = new();
+    private List<User> _users = [];
+    private List<Invitation> _pending = [];
+    private bool _inviteDialogOpen;
+    private bool _inviting;
+    private string _inviteEmail = "";
+    private UserRole _inviteRole = UserRole.Member;
+    private string _adminSearch = "";
+    private string _memberSearch = "";
+    private User? _deleting;
+
+    private IEnumerable<User> Admins => _users.Where(user => user.Role == UserRole.Admin);
+    private IEnumerable<User> Members => _users.Where(user => user.Role == UserRole.Member);
+    private IEnumerable<User> FilteredAdmins => Filter(Admins, _adminSearch);
+    private IEnumerable<User> FilteredMembers => Filter(Members, _memberSearch);
 
     protected override async Task OnInitializedAsync()
     {
-        await using var db = await DbFactory.CreateDbContextAsync();
-        _users = await db.Users.ToListAsync();
+        if (!Auth.IsAdmin)
+            return;
+
+        await LoadAsync();
     }
+
+    private static IEnumerable<User> Filter(IEnumerable<User> users, string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return users.OrderBy(user => user.Email);
+
+        var term = query.Trim();
+        return users
+            .Where(user =>
+                user.Email.Contains(term, StringComparison.OrdinalIgnoreCase)
+                || (user.DisplayName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                || user.Status.ToString().Contains(term, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(user => user.Email);
+    }
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _users = await db.Users.AsNoTracking().OrderBy(user => user.Email).ToListAsync();
+        _pending = await db.Invitations.AsNoTracking()
+            .Where(invitation => invitation.Status == InvitationStatus.Pending)
+            .OrderByDescending(invitation => invitation.Id)
+            .ToListAsync();
+    }
+
+    private void OpenInvite()
+    {
+        _inviteEmail = "";
+        _inviteRole = UserRole.Member;
+        _inviteDialogOpen = true;
+    }
+
+    private void CloseInvite()
+    {
+        if (!_inviting)
+            _inviteDialogOpen = false;
+    }
+
+    private async Task InviteAsync()
+    {
+        if (_inviting)
+            return;
+
+        _inviting = true;
+        try
+        {
+            var result = await Invitations.InviteAsync(_inviteEmail, _inviteRole);
+            if (!result.Success)
+            {
+                Snackbar.Add(result.Error ?? "Invitation could not be created.", Severity.Error);
+                return;
+            }
+
+            _inviteDialogOpen = false;
+            await InvokeAsync(StateHasChanged);
+            await LoadAsync();
+            Snackbar.Add(
+                result.EmailDelivered
+                    ? "Invitation sent"
+                    : "Invitation created, but email delivery is not configured",
+                result.EmailDelivered ? Severity.Success : Severity.Warning);
+        }
+        finally
+        {
+            _inviting = false;
+        }
+    }
+
+    private async Task ChangeRoleAsync(User user, UserRole role)
+    {
+        if (user.Role == role)
+            return;
+        if (IsCurrentUser(user))
+        {
+            Snackbar.Add("You cannot change your own role.", Severity.Warning);
+            return;
+        }
+        if (IsSeededUser(user))
+        {
+            Snackbar.Add("The seeded administrator role cannot be changed.", Severity.Warning);
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var tracked = await db.Users.FirstOrDefaultAsync(item => item.Id == user.Id);
+        if (tracked is null)
+            return;
+
+        if (tracked.Role == UserRole.Admin && role == UserRole.Member
+            && !await HasAnotherActiveAdminAsync(db, tracked.Id))
+        {
+            Snackbar.Add("The workspace must retain at least one active administrator.", Severity.Warning);
+            return;
+        }
+
+        tracked.Role = role;
+        await db.SaveChangesAsync();
+        await LoadAsync();
+        Snackbar.Add(role == UserRole.Admin ? "User promoted to Admin" : "User changed to Member", Severity.Success);
+    }
+
+    private async Task ToggleStatusAsync(User user)
+    {
+        if (IsCurrentUser(user))
+        {
+            Snackbar.Add("You cannot disable your current session.", Severity.Warning);
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var tracked = await db.Users.FirstOrDefaultAsync(item => item.Id == user.Id);
+        if (tracked is null)
+            return;
+
+        if (tracked.Status != UserStatus.Disabled
+            && tracked.Role == UserRole.Admin
+            && !await HasAnotherActiveAdminAsync(db, tracked.Id))
+        {
+            Snackbar.Add("The workspace must retain at least one active administrator.", Severity.Warning);
+            return;
+        }
+
+        tracked.Status = tracked.Status == UserStatus.Disabled
+            ? UserStatus.Active
+            : UserStatus.Disabled;
+        await db.SaveChangesAsync();
+        await LoadAsync();
+        Snackbar.Add(tracked.Status == UserStatus.Active ? "User enabled" : "User disabled", Severity.Success);
+    }
+
+    private void RequestDelete(User user)
+    {
+        if (IsCurrentUser(user))
+        {
+            Snackbar.Add("You cannot delete your current account.", Severity.Warning);
+            return;
+        }
+        if (IsSeededUser(user))
+        {
+            Snackbar.Add("The seeded administrator can be disabled, but not deleted.", Severity.Warning);
+            return;
+        }
+
+        _deleting = user;
+    }
+
+    private void CancelDelete() => _deleting = null;
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (_deleting is null)
+            return;
+
+        var userId = _deleting.Id;
+        var email = _deleting.Email;
+
+        // Conditional rendering owns this modal, so clearing the selected item
+        // removes it immediately without a MudDialog visibility callback reopening it.
+        _deleting = null;
+        await InvokeAsync(StateHasChanged);
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var tracked = await db.Users.FirstOrDefaultAsync(item => item.Id == userId);
+        if (tracked is null)
+            return;
+
+        if (tracked.Role == UserRole.Admin
+            && !await HasAnotherActiveAdminAsync(db, tracked.Id))
+        {
+            Snackbar.Add("The workspace must retain at least one active administrator.", Severity.Warning);
+            return;
+        }
+
+        await db.Invitations.Where(invitation => invitation.Email == email).ExecuteDeleteAsync();
+        db.Users.Remove(tracked);
+        await db.SaveChangesAsync();
+        await LoadAsync();
+        Snackbar.Add("User deleted", Severity.Success);
+    }
+
+    private async Task RevokeAsync(int invitationId)
+    {
+        if (!await Invitations.RevokeAsync(invitationId))
+        {
+            Snackbar.Add("Invitation is no longer pending.", Severity.Info);
+            return;
+        }
+
+        await LoadAsync();
+        Snackbar.Add("Invitation revoked", Severity.Success);
+    }
+
+    private static Task<bool> HasAnotherActiveAdminAsync(AppDbContext db, int excludingUserId)
+        => db.Users.AnyAsync(user =>
+            user.Id != excludingUserId
+            && user.Role == UserRole.Admin
+            && user.Status == UserStatus.Active);
+
+    private bool IsCurrentUser(User user) => Auth.CurrentUser?.Id == user.Id;
+    private static bool IsSeededUser(User user)
+        => string.Equals(user.Email, SeededAdminAccount.Email, StringComparison.OrdinalIgnoreCase);
+
 }

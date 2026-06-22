@@ -3,52 +3,54 @@
 @inject CloudConnectionService Connections
 @inject ISnackbar Snackbar
 
-<div style="display:flex;align-items:center;gap:12px">
-    <div>
+<section class="fx-page-header">
+    <div class="fx-page-heading">
+        <div class="fx-eyebrow">Cross-cloud workspaces</div>
         <h1 class="fx-page-title">Projects</h1>
         <p class="fx-page-sub">Group cloud services across providers into client/project buckets.</p>
     </div>
-    <MudSpacer />
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => Edit(new Project()))">
+    <MudButton Class="fx-page-action" Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => Edit(new Project()))">
         New project
     </MudButton>
-</div>
+</section>
 
 <div class="fx-tiles">
     @foreach (var p in _projects)
     {
-        <div class="fx-tile" @onclick="@(() => Edit(p))" style="cursor:pointer">
+        <button type="button" class="fx-tile fx-project-tile" @onclick="@(() => Edit(p))">
             <div class="fx-tile-title">@p.Name</div>
-            <div style="color:var(--fx-text-muted);font-size:13px">@(p.Client?.Name ?? "No client")</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <div class="fx-project-client">@(p.Client?.Name ?? "No client")</div>
+            <div class="fx-chip-row">
                 @foreach (var prov in p.Services.Select(s => s.Provider).Distinct())
                 {
                     <span class="fx-chip @prov.ToString().ToLower()">@prov</span>
                 }
             </div>
-            <div class="fx-tile-stat" style="font-size:20px">
+            <div class="fx-tile-stat fx-project-spend">
                 @p.Services.Sum(s => s.EstimatedCost).ToString("C0") <small>/mo est. (@p.Currency)</small>
             </div>
-        </div>
+        </button>
     }
     @if (_projects.Count == 0) { <Empty Text="No projects yet." /> }
 </div>
 
 @if (_editing is not null)
 {
-    <MudDialog @bind-Visible="_dialogOpen" Options="new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true }">
-        <TitleContent>@(_editing.Id == 0 ? "New project" : _editing.Name)</TitleContent>
-        <DialogContent>
+    <AppModal Title="@(_editing.Id == 0 ? "New project" : _editing.Name)"
+              Width="large"
+              OnCancel="CloseEditor">
+        <ChildContent>
             <MudTextField @bind-Value="_editing.Name" Label="Name *" Required="true" />
             <MudTextField @bind-Value="_editing.Description" Label="Description" Lines="2" />
-            <div style="display:flex;gap:12px">
-                <MudSelect T="int?" @bind-Value="_editing.ClientId" Label="Client" Clearable="true" Style="flex:1">
+            <div class="fx-form-row">
+                <MudSelect T="int?" @bind-Value="_editing.ClientId" Label="Client" Clearable="true" Class="fx-form-grow">
                     @foreach (var c in _clients)
                     {
                         <MudSelectItem T="int?" Value="@c.Id">@c.Name</MudSelectItem>
                     }
                 </MudSelect>
-                <MudSelect T="string" @bind-Value="_editing.Currency" Label="Currency" Style="width:120px">
+                <MudSelect T="string" @bind-Value="_editing.Currency" Label="Currency" Class="fx-form-compact">
                     @foreach (var cur in Currencies)
                     {
                         <MudSelectItem Value="@cur">@cur</MudSelectItem>
@@ -62,61 +64,61 @@
             </MudText>
             @foreach (var s in _editing.Services)
             {
-                <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+                <div class="fx-service-row">
                     <span class="fx-chip @s.Provider.ToString().ToLower()">@s.Provider</span>
-                    <span style="flex:1">@s.Name</span>
-                    <span>@s.EstimatedCost.ToString("C0")</span>
+                    <span class="fx-service-name">@s.Name</span>
+                    <strong>@s.EstimatedCost.ToString("C0")</strong>
                 </div>
             }
-            <div style="display:flex;gap:8px;align-items:end;margin-top:8px">
-                <MudTextField @bind-Value="_newService.Name" Label="Service name" Style="flex:1" />
-                <MudSelect T="CloudProvider" @bind-Value="_newService.Provider" Label="Provider" Style="width:120px">
+            <div class="fx-service-entry">
+                <MudTextField @bind-Value="_newService.Name" Label="Service name" Class="fx-form-grow" />
+                <MudSelect T="CloudProvider" @bind-Value="_newService.Provider" Label="Provider" Class="fx-form-compact">
                     <MudSelectItem Value="CloudProvider.Aws">AWS</MudSelectItem>
                     <MudSelectItem Value="CloudProvider.Azure">Azure</MudSelectItem>
                     <MudSelectItem Value="CloudProvider.Gcp">GCP</MudSelectItem>
                 </MudSelect>
-                <MudNumericField @bind-Value="_newService.EstimatedCost" Label="Est./mo" Style="width:110px" />
-                <MudButton OnClick="AddService">Add</MudButton>
+                <MudNumericField @bind-Value="_newService.EstimatedCost" Label="Est./mo" Class="fx-form-compact" />
+                <MudButton Class="fx-inline-action" OnClick="AddService">Add</MudButton>
             </div>
 
             <MudDivider Class="my-3" />
             <MudText Typo="Typo.subtitle2">Choose existing resources</MudText>
             <MudText Typo="Typo.caption" Class="mb-2">Import resources from a connected cloud account (cross-account grouping).</MudText>
-            <div style="display:flex;gap:8px;align-items:end">
-                <MudSelect T="int?" @bind-Value="_discoverAccountId" Label="Connected account" Style="flex:1">
+            <div class="fx-discovery-controls">
+                <MudSelect T="int?" @bind-Value="_discoverAccountId" Label="Connected account" Class="fx-form-grow">
                     @foreach (var a in _accounts)
                     {
                         <MudSelectItem T="int?" Value="@a.Id">@a.DisplayName (@a.Provider)</MudSelectItem>
                     }
                 </MudSelect>
-                <MudButton StartIcon="@Icons.Material.Filled.Search" OnClick="DiscoverAsync" Disabled="_discovering">
+                <MudButton Class="fx-inline-action" StartIcon="@Icons.Material.Filled.Search" OnClick="DiscoverAsync" Disabled="_discovering">
                     @(_discovering ? "…" : "Discover")
                 </MudButton>
             </div>
 
             @if (_discovered is not null)
             {
-                <div style="max-height:220px;overflow:auto;margin-top:8px">
+                <div class="fx-discovery-list">
                     @foreach (var r in _discovered)
                     {
-                        <div style="display:flex;align-items:center;gap:8px">
+                        <div class="fx-discovery-item">
                             <MudCheckBox T="bool" Value="@_selected.Contains(r.ExternalId)"
                                          ValueChanged="@(v => Toggle(r.ExternalId, v))" Dense="true" />
                             <span class="fx-chip @r.Provider.ToString().ToLower()">@r.Provider</span>
-                            <span style="flex:1">@r.Name</span>
-                            <span style="font-size:12px;color:var(--fx-text-muted)">@r.ResourceType</span>
+                            <span class="fx-discovery-name">@r.Name</span>
+                            <span class="fx-discovery-type">@r.ResourceType</span>
                         </div>
                     }
                 </div>
                 <MudButton Variant="Variant.Outlined" Class="mt-2" OnClick="AddSelectedResources"
                            Disabled="_selected.Count == 0">Add @_selected.Count selected</MudButton>
             }
-        </DialogContent>
-        <DialogActions>
-            <MudButton OnClick="@(() => _dialogOpen = false)">Cancel</MudButton>
+        </ChildContent>
+        <FooterContent>
+            <MudButton OnClick="CloseEditor">Cancel</MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Save</MudButton>
-        </DialogActions>
-    </MudDialog>
+        </FooterContent>
+    </AppModal>
 }
 
 @code {
@@ -127,7 +129,6 @@
     private List<CloudAccount> _accounts = new();
     private Project? _editing;
     private Service _newService = new();
-    private bool _dialogOpen;
 
     // "Choose existing resources" state
     private int? _discoverAccountId;
@@ -152,8 +153,9 @@
         _discovered = null;
         _selected.Clear();
         _discoverAccountId = _accounts.FirstOrDefault()?.Id;
-        _dialogOpen = true;
     }
+
+    private void CloseEditor() => _editing = null;
 
     private void Toggle(string id, bool on)
     {
@@ -211,11 +213,13 @@
     private async Task SaveAsync()
     {
         if (_editing is null || string.IsNullOrWhiteSpace(_editing.Name)) return;
+        var project = _editing;
         await using var db = await DbFactory.CreateDbContextAsync();
-        if (_editing.Id == 0) db.Projects.Add(_editing);
-        else db.Projects.Update(_editing);
+        if (project.Id == 0) db.Projects.Add(project);
+        else db.Projects.Update(project);
         await db.SaveChangesAsync();
-        _dialogOpen = false;
+        _editing = null;
+        await InvokeAsync(StateHasChanged);
         Snackbar.Add("Project saved", Severity.Success);
         await LoadAsync();
     }

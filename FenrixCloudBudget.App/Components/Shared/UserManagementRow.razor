@@ -1,0 +1,85 @@
+<div class="fx-user-row">
+    <div class="fx-user-identity">
+        <div class="fx-user-avatar">@Initials(User)</div>
+        <div>
+            <div class="fx-user-name">
+                <strong>@(User.DisplayName ?? User.Email.Split('@')[0])</strong>
+                @if (IsSeededUser)
+                {
+                    <span class="fx-seeded-badge">Seeded</span>
+                }
+                @if (IsCurrentUser)
+                {
+                    <span class="fx-current-badge">You</span>
+                }
+            </div>
+            <small>@User.Email</small>
+            <span>@(User.LastLoginUtc is null ? "Never signed in" : $"Last sign-in {RelativeTime(User.LastLoginUtc.Value)}")</span>
+        </div>
+    </div>
+
+    <div class="fx-user-controls">
+        <MudSelect T="UserRole"
+                   Value="@User.Role"
+                   ValueChanged="@(role => RoleChanged.InvokeAsync(role))"
+                   Dense="true"
+                   Disabled="@(IsCurrentUser || IsSeededUser)"
+                   Label="Role"
+                   Class="fx-user-role-select">
+            <MudSelectItem Value="UserRole.Member">Member</MudSelectItem>
+            <MudSelectItem Value="UserRole.Admin">Admin</MudSelectItem>
+        </MudSelect>
+
+        <MudChip T="string" Size="Size.Small" Color="@StatusColor(User.Status)">
+            @User.Status
+        </MudChip>
+
+        <MudIconButton Icon="@(User.Status == UserStatus.Disabled ? Icons.Material.Filled.ToggleOff : Icons.Material.Filled.ToggleOn)"
+                       Color="@(User.Status == UserStatus.Disabled ? Color.Default : Color.Success)"
+                       Disabled="@IsCurrentUser"
+                       title="@(User.Status == UserStatus.Disabled ? "Enable user" : "Disable user")"
+                       aria-label="@(User.Status == UserStatus.Disabled ? "Enable user" : "Disable user")"
+                       OnClick="@(() => StatusToggle.InvokeAsync())" />
+        <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                       Color="Color.Error"
+                       Disabled="@(IsCurrentUser || IsSeededUser)"
+                       title="@(IsSeededUser ? "Seeded administrator cannot be deleted" : "Delete user")"
+                       aria-label="@(IsSeededUser ? "Seeded administrator cannot be deleted" : "Delete user")"
+                       OnClick="@(() => DeleteRequested.InvokeAsync())" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public User User { get; set; } = null!;
+    [Parameter] public bool IsCurrentUser { get; set; }
+    [Parameter] public bool IsSeededUser { get; set; }
+    [Parameter] public EventCallback<UserRole> RoleChanged { get; set; }
+    [Parameter] public EventCallback StatusToggle { get; set; }
+    [Parameter] public EventCallback DeleteRequested { get; set; }
+
+    private static string Initials(User user)
+    {
+        var source = user.DisplayName ?? user.Email.Split('@')[0];
+        var words = source.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return words.Length > 1
+            ? string.Concat(words.Take(2).Select(word => char.ToUpperInvariant(word[0])))
+            : source[..Math.Min(2, source.Length)].ToUpperInvariant();
+    }
+
+    private static Color StatusColor(UserStatus status) => status switch
+    {
+        UserStatus.Active => Color.Success,
+        UserStatus.Invited => Color.Warning,
+        UserStatus.Disabled => Color.Error,
+        _ => Color.Default
+    };
+
+    private static string RelativeTime(DateTimeOffset value)
+    {
+        var age = DateTimeOffset.UtcNow - value;
+        if (age < TimeSpan.FromMinutes(1)) return "just now";
+        if (age < TimeSpan.FromHours(1)) return $"{(int)age.TotalMinutes} min ago";
+        if (age < TimeSpan.FromDays(1)) return $"{(int)age.TotalHours} hr ago";
+        return value.LocalDateTime.ToString("dd MMM yyyy");
+    }
+}

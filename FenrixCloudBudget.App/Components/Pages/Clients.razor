@@ -2,49 +2,62 @@
 @inject IDbContextFactory<AppDbContext> DbFactory
 @inject ISnackbar Snackbar
 
-<div style="display:flex;align-items:center;gap:12px">
-    <div>
+<section class="fx-page-header">
+    <div class="fx-page-heading">
+        <div class="fx-eyebrow">Portfolio relationships</div>
         <h1 class="fx-page-title">Clients</h1>
         <p class="fx-page-sub">Companies you bill. Projects roll up to a client.</p>
     </div>
-    <MudSpacer />
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => Edit(new Client()))">
+    <MudButton Class="fx-page-action" Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => Edit(new Client()))">
         New client
     </MudButton>
-</div>
+</section>
 
-<div class="fx-card">
-    @if (_clients.Count == 0)
-    {
+@if (_clients.Count == 0)
+{
+    <div class="fx-card">
         <Empty Text="No clients yet. Create your first one." />
-    }
-    else
-    {
-        <MudSimpleTable Hover="true" Dense="true">
-            <thead><tr><th>Name</th><th>Company</th><th>Contact</th><th>Projects</th><th></th></tr></thead>
-            <tbody>
-                @foreach (var c in _clients)
-                {
-                    <tr>
-                        <td>@c.Name</td>
-                        <td>@c.CompanyName</td>
-                        <td>@c.ContactEmail</td>
-                        <td>@c.Projects.Count</td>
-                        <td style="text-align:right">
-                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="@(() => Edit(c))" />
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </MudSimpleTable>
-    }
-</div>
+    </div>
+}
+else
+{
+    <div class="fx-client-grid">
+        @foreach (var c in _clients)
+        {
+            <article class="fx-client-card">
+                <div class="fx-client-card-head">
+                    <div class="fx-client-avatar">@ClientInitials(c)</div>
+                    <div>
+                        <h2>@c.Name</h2>
+                        <span>@(string.IsNullOrWhiteSpace(c.CompanyName) ? "Independent client" : c.CompanyName)</span>
+                    </div>
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                   Size="Size.Small"
+                                   aria-label="Edit client"
+                                   OnClick="@(() => Edit(c))" />
+                </div>
+                <div class="fx-client-meta">
+                    <div>
+                        <MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" />
+                        <span>@(string.IsNullOrWhiteSpace(c.ContactEmail) ? "No email added" : c.ContactEmail)</span>
+                    </div>
+                    <div>
+                        <MudIcon Icon="@Icons.Material.Filled.FolderOpen" Size="Size.Small" />
+                        <span>@c.Projects.Count project@(c.Projects.Count == 1 ? "" : "s")</span>
+                    </div>
+                </div>
+            </article>
+        }
+    </div>
+}
 
 @if (_editing is not null)
 {
-    <MudDialog @bind-Visible="_dialogOpen" Options="new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true }">
-        <TitleContent>@(_editing.Id == 0 ? "New client" : "Edit client")</TitleContent>
-        <DialogContent>
+    <AppModal Title="@(_editing.Id == 0 ? "New client" : "Edit client")"
+              Width="small"
+              OnCancel="CloseEditor">
+        <ChildContent>
             <MudTextField @bind-Value="_editing.Name" Label="Name *" Required="true" />
             <MudTextField @bind-Value="_editing.CompanyName" Label="Company" />
             <MudTextField @bind-Value="_editing.ContactName" Label="Contact name" />
@@ -52,18 +65,17 @@
             <MudTextField @bind-Value="_editing.ContactPhone" Label="Phone" />
             <MudTextField @bind-Value="_editing.BillingAddress" Label="Billing address" Lines="2" />
             <MudTextField @bind-Value="_editing.Notes" Label="Notes" Lines="2" />
-        </DialogContent>
-        <DialogActions>
-            <MudButton OnClick="@(() => _dialogOpen = false)">Cancel</MudButton>
+        </ChildContent>
+        <FooterContent>
+            <MudButton OnClick="CloseEditor">Cancel</MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Save</MudButton>
-        </DialogActions>
-    </MudDialog>
+        </FooterContent>
+    </AppModal>
 }
 
 @code {
     private List<Client> _clients = new();
     private Client? _editing;
-    private bool _dialogOpen;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -76,17 +88,29 @@
     private void Edit(Client c)
     {
         _editing = c;
-        _dialogOpen = true;
+    }
+
+    private void CloseEditor() => _editing = null;
+
+    private static string ClientInitials(Client client)
+    {
+        var source = string.IsNullOrWhiteSpace(client.Name) ? "Client" : client.Name;
+        var words = source.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return words.Length > 1
+            ? string.Concat(words.Take(2).Select(word => char.ToUpperInvariant(word[0])))
+            : source[..Math.Min(2, source.Length)].ToUpperInvariant();
     }
 
     private async Task SaveAsync()
     {
         if (_editing is null || string.IsNullOrWhiteSpace(_editing.Name)) return;
+        var client = _editing;
         await using var db = await DbFactory.CreateDbContextAsync();
-        if (_editing.Id == 0) db.Clients.Add(_editing);
-        else db.Clients.Update(_editing);
+        if (client.Id == 0) db.Clients.Add(client);
+        else db.Clients.Update(client);
         await db.SaveChangesAsync();
-        _dialogOpen = false;
+        _editing = null;
+        await InvokeAsync(StateHasChanged);
         Snackbar.Add("Client saved", Severity.Success);
         await LoadAsync();
     }

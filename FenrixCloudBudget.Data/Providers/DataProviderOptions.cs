@@ -15,4 +15,10 @@ public class DataProviderOptions
 
     /// <summary>Base address of the hosted API for SaaS mode.</summary>
     public string? SaasBaseUrl { get; set; }
+
+    /// <summary>
+    /// Current bearer session for SaaS mode. Hosts should resolve this from secure storage
+    /// when constructing the provider; it is intentionally never written to the database.
+    /// </summary>
+    public string? SaasAccessToken { get; set; }
 }

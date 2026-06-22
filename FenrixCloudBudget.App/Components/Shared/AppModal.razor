@@ -1,0 +1,56 @@
+<div class="fx-modal-backdrop" role="presentation" @onclick="CancelAsync">
+    <section class="@PanelClass"
+             role="@Role"
+             aria-modal="true"
+             aria-labelledby="@_titleId"
+             aria-describedby="@DescriptionId"
+             tabindex="-1"
+             @onkeydown="HandleKeyDown"
+             @onclick:stopPropagation="true">
+        <header class="fx-modal-head">
+            <h2 id="@_titleId">@Title</h2>
+            @if (ShowCloseButton)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                               Size="Size.Small"
+                               Disabled="@(!CanCancel)"
+                               title="Close"
+                               aria-label="Close dialog"
+                               OnClick="CancelAsync" />
+            }
+        </header>
+
+        <div class="fx-modal-body">
+            @ChildContent
+        </div>
+
+        @if (FooterContent is not null)
+        {
+            <footer class="fx-modal-actions">
+                @FooterContent
+            </footer>
+        }
+    </section>
+</div>
+
+@code {
+    private readonly string _titleId = $"fx-modal-title-{Guid.NewGuid():N}";
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string Width { get; set; } = "small";
+    [Parameter] public string Role { get; set; } = "dialog";
+    [Parameter] public string? DescriptionId { get; set; }
+    [Parameter] public bool CanCancel { get; set; } = true;
+    [Parameter] public bool ShowCloseButton { get; set; } = true;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string PanelClass => $"fx-modal-panel fx-modal-{Width}";
+
+    private Task CancelAsync()
+        => CanCancel ? OnCancel.InvokeAsync() : Task.CompletedTask;
+
+    private Task HandleKeyDown(KeyboardEventArgs args)
+        => args.Key == "Escape" ? CancelAsync() : Task.CompletedTask;
+}

@@ -24,7 +24,10 @@ public static class DataServiceCollectionExtensions
             {
                 DataProviderMode.SqlServer => new SqlServerDataProvider(factory, DataProviderMode.SqlServer),
                 DataProviderMode.CloudSql  => new SqlServerDataProvider(factory, DataProviderMode.CloudSql),
-                DataProviderMode.Saas      => new SaaSDataProvider(factory, options.SaasBaseUrl ?? string.Empty),
+                DataProviderMode.Saas      => new SaaSDataProvider(
+                    factory,
+                    options.SaasBaseUrl ?? string.Empty,
+                    options.SaasAccessToken),
                 _                          => new SqliteDataProvider(factory)
             };
         });

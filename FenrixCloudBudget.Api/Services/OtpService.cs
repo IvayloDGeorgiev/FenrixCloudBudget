@@ -1,9 +1,8 @@
-using System.Security.Cryptography;
-using System.Text;
 using FenrixCloudBudget.Core.Entities;
 using FenrixCloudBudget.Core.Enums;
 using FenrixCloudBudget.Core.Interfaces;
 using FenrixCloudBudget.Data;
+using FenrixCloudBudget.Services.Auth;
 using FenrixCloudBudget.Services.Email.Templates;
 using Microsoft.EntityFrameworkCore;
 
@@ -29,13 +28,26 @@ public sealed class OtpService
     }
 
     /// <summary>Issue (or re-issue) a code for an email and send it. Returns nothing sensitive.</summary>
-    public async Task RequestCodeAsync(string email, CancellationToken ct = default)
+    public async Task<bool> RequestCodeAsync(string email, CancellationToken ct = default)
     {
-        var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
-
         await using var db = await _dbf.CreateDbContextAsync(ct);
+        var userCount = await db.Users.CountAsync(ct);
+        var user = await db.Users.FirstOrDefaultAsync(item => item.Email == email, ct);
 
-        // Invalidate any prior pending invitations for this email.
+        // The very first verified account bootstraps the workspace as Admin. After that,
+        // sign-in codes are only issued to known/explicitly invited users.
+        if (userCount > 0 && (user is null || user.Status == UserStatus.Disabled))
+            return false;
+
+        var pendingInvite = await db.Invitations
+            .Where(item => item.Email == email && item.Status == InvitationStatus.Pending)
+            .OrderByDescending(item => item.Id)
+            .FirstOrDefaultAsync(ct);
+        var role = user?.Role
+                   ?? pendingInvite?.Role
+                   ?? (userCount == 0 ? UserRole.Admin : UserRole.Member);
+        var code = OneTimeCode.Create();
+
         await db.Invitations
             .Where(i => i.Email == email && i.Status == InvitationStatus.Pending)
             .ExecuteUpdateAsync(s => s.SetProperty(i => i.Status, InvitationStatus.Expired), ct);
@@ -43,7 +55,8 @@ public sealed class OtpService
         db.Invitations.Add(new Invitation
         {
             Email = email,
-            CodeHash = Hash(code, email),
+            Role = role,
+            CodeHash = OneTimeCode.Hash(code, email),
             ExpiresUtc = DateTimeOffset.UtcNow.Add(Ttl),
             Status = InvitationStatus.Pending
         });
@@ -51,6 +64,7 @@ public sealed class OtpService
 
         await _notifications.SendEmailAsync(email, EmailTemplateRenderer.Otp,
             new { Code = code, Minutes = (int)Ttl.TotalMinutes }, ct);
+        return true;
     }
 
     /// <summary>Verify a submitted code. Enforces expiry, attempt limit, and single-use.</summary>
@@ -59,11 +73,16 @@ public sealed class OtpService
         await using var db = await _dbf.CreateDbContextAsync(ct);
         var invite = await db.Invitations
             .Where(i => i.Email == email && i.Status == InvitationStatus.Pending)
-            .OrderByDescending(i => i.CreatedUtc)
+            .OrderByDescending(i => i.Id)
             .FirstOrDefaultAsync(ct);
 
         if (invite is null) return OtpResult.Invalid("No pending code. Request a new one.");
-        if (invite.ExpiresUtc < DateTimeOffset.UtcNow) return OtpResult.Invalid("Code expired.");
+        if (invite.ExpiresUtc < DateTimeOffset.UtcNow)
+        {
+            invite.Status = InvitationStatus.Expired;
+            await db.SaveChangesAsync(ct);
+            return OtpResult.Invalid("Code expired.");
+        }
         if (invite.AttemptCount >= MaxAttempts)
         {
             invite.Status = InvitationStatus.Revoked;
@@ -73,9 +92,10 @@ public sealed class OtpService
 
         invite.AttemptCount++;
 
-        if (!CryptographicOperations.FixedTimeEquals(
-                Encoding.UTF8.GetBytes(invite.CodeHash), Encoding.UTF8.GetBytes(Hash(code, email))))
+        if (!OneTimeCode.Matches(invite.CodeHash, code, email))
         {
+            if (invite.AttemptCount >= MaxAttempts)
+                invite.Status = InvitationStatus.Revoked;
             await db.SaveChangesAsync(ct);
             return OtpResult.Invalid("Incorrect code.");
         }
@@ -86,26 +106,37 @@ public sealed class OtpService
         var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
         if (user is null)
         {
-            user = new User { Email = email, Role = invite.Role, Status = UserStatus.Active };
+            user = new User
+            {
+                Email = email,
+                Role = invite.Role,
+                Status = UserStatus.Active,
+                LastLoginUtc = DateTimeOffset.UtcNow
+            };
             db.Users.Add(user);
         }
         else
         {
+            if (user.Status == UserStatus.Disabled)
+                return OtpResult.Invalid("This account is disabled.");
+
+            user.Role = invite.Role;
             user.Status = UserStatus.Active;
             user.LastLoginUtc = DateTimeOffset.UtcNow;
         }
         await db.SaveChangesAsync(ct);
 
-        // TODO: issue a signed session token (JWT) here and return it.
-        return OtpResult.Ok(user.Email, user.Role);
+        return OtpResult.Ok(user.Id, user.Email, user.Role);
     }
-
-    private static string Hash(string code, string salt)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{salt}:{code}")));
 }
 
-public record OtpResult(bool Success, string? Email = null, UserRole Role = UserRole.Member, string? Error = null)
+public record OtpResult(
+    bool Success,
+    int UserId = 0,
+    string? Email = null,
+    UserRole Role = UserRole.Member,
+    string? Error = null)
 {
-    public static OtpResult Ok(string email, UserRole role) => new(true, email, role);
+    public static OtpResult Ok(int userId, string email, UserRole role) => new(true, userId, email, role);
     public static OtpResult Invalid(string error) => new(false, Error: error);
 }

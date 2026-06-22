@@ -12,7 +12,7 @@
     </div>
 </section>
 
-<div class="fx-card" style="padding:4px 20px 22px">
+<div class="fx-card fx-settings-card">
     <MudTabs Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-5">
         <MudTabPanel Text="Appearance" Icon="@Icons.Material.Filled.Palette">
             <div class="fx-appearance-intro">
@@ -80,7 +80,7 @@
 
             @if (_settings is not null)
             {
-                <div style="max-width:560px">
+                <div class="fx-settings-form">
                     <MudSelect T="DataProviderMode" @bind-Value="_settings.DataMode" Label="Storage mode" Class="mt-2">
                         <MudSelectItem Value="DataProviderMode.Sqlite">SQLite — on-device</MudSelectItem>
                         <MudSelectItem Value="DataProviderMode.SqlServer">SQL Server</MudSelectItem>
@@ -98,7 +98,7 @@
                     <div class="mt-5">
                         <MudNumericField @bind-Value="_settings.SyncIntervalHours"
                                          Label="Automatic sync interval (hours)"
-                                         Style="max-width:300px" />
+                                         Class="fx-settings-number" />
                         <MudText Typo="Typo.caption">
                             A calmer interval reduces provider API traffic. AWS Cost Explorer charges per request.
                         </MudText>
@@ -123,7 +123,7 @@
 
             @if (_email is not null)
             {
-                <div style="max-width:560px">
+                <div class="fx-settings-form">
                     <MudSelect T="EmailMethod" @bind-Value="_email.Method" Label="Delivery method" Class="mt-2">
                         <MudSelectItem Value="EmailMethod.InAppAndDeviceOnly">In-app & device only</MudSelectItem>
                         <MudSelectItem Value="EmailMethod.CustomSmtp">Custom SMTP</MudSelectItem>
@@ -163,7 +163,7 @@
                         </MudButton>
                     }
 
-                    <div class="mt-4" style="display:flex;align-items:center;gap:10px">
+                    <div class="fx-settings-actions mt-4">
                         <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                    StartIcon="@Icons.Material.Filled.Save"
                                    OnClick="SaveEmail">

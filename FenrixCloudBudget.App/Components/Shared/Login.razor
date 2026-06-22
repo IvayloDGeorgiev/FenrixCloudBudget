@@ -1,0 +1,101 @@
+@inject AuthSessionService Auth
+
+<div class="fx-auth-shell">
+    <div class="fx-auth-atmosphere" aria-hidden="true">
+        <span></span><span></span><span></span>
+    </div>
+
+    <section class="fx-login-card">
+        <div class="fx-login-brand">
+            <span class="fx-brand-mark" aria-hidden="true">
+                <span class="fx-brand-cloud"></span>
+                <span class="fx-brand-spark"></span>
+            </span>
+            <span>
+                <strong>Fenrix</strong>
+                <small>CloudBudget</small>
+            </span>
+        </div>
+
+        <div class="fx-login-copy">
+            <div class="fx-eyebrow">Secure workspace</div>
+            <h1>Welcome back.</h1>
+            <p>Sign in to continue to your multi-cloud financial workspace.</p>
+        </div>
+
+        <MudTextField @bind-Value="_identifier"
+                      Label="Username or email"
+                      Placeholder="admin"
+                      Variant="Variant.Outlined"
+                      Immediate="true"
+                      Disabled="_busy"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Person" />
+        <MudTextField @bind-Value="_password"
+                      Label="Password"
+                      Variant="Variant.Outlined"
+                      InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                      Immediate="true"
+                      Disabled="_busy"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                      OnAdornmentClick="@(() => _showPassword = !_showPassword)"
+                      OnKeyDown="HandleKeyDown" />
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Text">@_error</MudAlert>
+        }
+
+        <MudButton FullWidth="true"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Size="Size.Large"
+                   StartIcon="@Icons.Material.Filled.Login"
+                   Disabled="_busy"
+                   OnClick="LoginAsync">
+            @(_busy ? "Signing in…" : "Sign in")
+        </MudButton>
+
+        <div class="fx-bootstrap-note">
+            <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Size="Size.Small" />
+            <span>
+                <strong>Bootstrap administrator</strong>
+                Username <code>admin</code> · Password <code>123456</code>
+            </span>
+        </div>
+    </section>
+</div>
+
+@code {
+    private string _identifier = "admin";
+    private string _password = "";
+    private string? _error;
+    private bool _showPassword;
+    private bool _busy;
+
+    private async Task LoginAsync()
+    {
+        if (_busy)
+            return;
+
+        _error = null;
+        _busy = true;
+        try
+        {
+            var result = await Auth.LoginAsync(_identifier, _password);
+            if (!result.Success)
+                _error = result.Error ?? "Sign-in failed.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+            await LoginAsync();
+    }
+}

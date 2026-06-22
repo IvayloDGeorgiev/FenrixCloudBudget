@@ -1,5 +1,6 @@
 using FenrixCloudBudget.Core.Entities;
 using FenrixCloudBudget.Core.Enums;
+using FenrixCloudBudget.Core.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace FenrixCloudBudget.Data;
@@ -14,6 +15,17 @@ public static class DbSeeder
 
         if (!await db.EmailConfigs.AnyAsync(ct))
             db.EmailConfigs.Add(new EmailConfig { Method = EmailMethod.InAppAndDeviceOnly, Enabled = true });
+
+        if (!await db.Users.AnyAsync(user => user.Email == SeededAdminAccount.Email, ct))
+        {
+            db.Users.Add(new User
+            {
+                Email = SeededAdminAccount.Email,
+                DisplayName = SeededAdminAccount.DisplayName,
+                Role = UserRole.Admin,
+                Status = UserStatus.Active
+            });
+        }
 
         // Lightweight demo so the dashboard isn't empty on first launch.
         if (!await db.Clients.AnyAsync(ct))

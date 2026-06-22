@@ -13,5 +13,6 @@
     <ProjectReference Include="..\FenrixCloudBudget.Core\FenrixCloudBudget.Core.csproj" />
     <ProjectReference Include="..\FenrixCloudBudget.Data\FenrixCloudBudget.Data.csproj" />
     <ProjectReference Include="..\FenrixCloudBudget.Services\FenrixCloudBudget.Services.csproj" />
+    <ProjectReference Include="..\FenrixCloudBudget.Api\FenrixCloudBudget.Api.csproj" />
   </ItemGroup>
 </Project>

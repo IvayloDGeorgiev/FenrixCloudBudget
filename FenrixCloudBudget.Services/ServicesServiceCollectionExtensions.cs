@@ -1,5 +1,5 @@
 using FenrixCloudBudget.Core.Interfaces;
-using FenrixCloudBudget.Services.Cloud;
+using FenrixCloudBudget.Services.Auth;
 using FenrixCloudBudget.Services.Email;
 using FenrixCloudBudget.Services.Email.Adapters;
 using FenrixCloudBudget.Services.Email.Templates;
@@ -46,8 +46,8 @@ public static class ServicesServiceCollectionExtensions
 
         // Sync / evaluation.
         services.TryAddSingleton(TimeProvider.System);
-        services.AddScoped<CloudConnectionService>();
-        services.AddScoped<CostSyncService>();
+        services.AddScoped<LocalPasswordAuthenticationService>();
+        services.AddScoped<UserInvitationService>();
         services.AddScoped<BudgetEvaluator>();
         services.AddScoped<ReminderEvaluator>();
 

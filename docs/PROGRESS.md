@@ -5,7 +5,7 @@
 > The full design rationale lives in `IMPLEMENTATION_PLAN.md`.
 
 **Last updated:** 2026-06-22
-**Current focus:** Phase 4 code path implemented and tested. Next: validate against live AWS/Azure/GCP accounts and add app-registration secret/certificate expiry metadata.
+**Current focus:** Phase 5 authentication and workspace user-management foundation implemented. Next: manual Windows/API verification, then complete hosted OTP sign-in and bidirectional SaaS sync.
 
 Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 
@@ -54,10 +54,15 @@ Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 - **Next:** validate all three connectors against live billing data; review any unmatched-cost rows and expand provider aliases as real account data reveals them.
 
 ## Phase 5 — Multi-user, backend & auth
-- ✅ API skeleton: `/health`, `/auth/request` + `/auth/verify` (hashed, expiring, rate-limited OTP), `/api` sync read endpoints.
-- 🟡 OTP issues a user but **does not yet mint a session token (JWT)** — marked TODO in `OtpService`/`AuthEndpoints`.
-- ⬜ Invitations admin UI; SaaS data provider sync (push/pull deltas); server-side email provider; optional B2C (Entra/Cognito).
-- **Next:** add JWT issuance + `[Authorize]` wiring; implement SaaSDataProvider sync; Users page invite flow.
+- ✅ JWT authentication foundation: signed access tokens, protected `/auth/me`, Admin-role authorization, rate-limited password/OTP entry points, and protected user/sync endpoints.
+- ✅ OTP and invitations: hashed expiring single-use codes, attempt limits, invited-user activation, role assignment, invitation creation/revocation, and server-side email dispatch through the shared notification service.
+- ✅ Local bootstrap sign-in: the database seeds `admin@fenrix.local` (`admin` / `123456`), the branded splash remains visible for an additional second, and unauthenticated app launches now stop at a login form.
+- ✅ Admin-only Users workspace: Users navigation is hidden from members; Administrators and Members have separate searchable sections; admins can promote/demote, enable/disable, invite, revoke invitations, and delete ordinary users.
+- ✅ Lockout protection: current/final active administrators cannot be disabled, demoted, or deleted. The seeded administrator keeps its Admin role, can be enabled/disabled by another active admin, and cannot be deleted or re-invited.
+- 🟡 SaaS data provider: authenticated credential-free server snapshot and local SQLite pull hydration are implemented. Push, conflict resolution, tenant ownership, and stable cross-device identifiers remain.
+- 🟡 Verification: the earlier Phase 5 API/auth/SaaS slice last passed 14 tests. A bootstrap-account test and the latest login/user UI changes have been added but intentionally not built or run yet; manual verification is requested.
+- ⬜ Hosted app sign-in UI for invited members (OTP request/verification), production password replacement/change flow, push sync, and optional B2C (Entra/Cognito).
+- **Next:** manually build and test Windows/API login and Users actions; then wire invited-member OTP screens and define tenant-scoped stable IDs before enabling SaaS push.
 
 ## Phase 6 — Monetization & polish
 - ⬜ Remove-ads / Pro via Play Billing; iOS/macOS targets; anomaly detection; forecasts.
@@ -66,6 +71,8 @@ Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 
 ## Known cross-cutting TODOs
 - ✅ Reminder lifecycle controls are reversible: Active → Completed, Snoozed/Completed/Dismissed → Active; reminders can be permanently deleted after confirmation.
+- ✅ All inline app dialogs use the shared conditionally rendered modal shell, avoiding stale MudDialog visibility callbacks; Cancel, Save/Send/Connect, backdrop click, Escape, and delete confirmation share one close lifecycle.
+- ✅ Responsive UI pass: reminder/client/resource tables were replaced or adapted for cards, forms and dashboard filters reflow across desktop/tablet/mobile breakpoints, actions become touch-friendly, and the bottom navigation retains every authorized destination including Users and Settings.
 - Replace placeholder brand SVGs in `FenrixCloudBudget.App/Resources/` with final art.
 - Amazon SES + Azure Communication Services email adapters expose their field schema but need their SDK packages wired (marked TODO in `PendingCloudEmailSenders.cs`).
 - Settings → "Test connection" for SQL Server runs on the live provider in the desktop build (placeholder text in UI).

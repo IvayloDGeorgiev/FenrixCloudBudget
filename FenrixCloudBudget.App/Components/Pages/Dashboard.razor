@@ -9,7 +9,8 @@
         <h1 class="fx-page-title">Cloud command center</h1>
         <p class="fx-page-sub">@_lastSynced</p>
     </div>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               Class="fx-page-action"
                StartIcon="@Icons.Material.Filled.Sync"
                Disabled="_syncing"
                OnClick="RefreshAsync">
@@ -92,22 +93,22 @@
             <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" />
             Refine view
         </div>
-        <MudSelect T="string" @bind-Value="_provider" Label="Provider" Dense="true" Style="min-width:150px">
+        <MudSelect T="string" @bind-Value="_provider" Label="Provider" Dense="true" Class="fx-filter-control">
             <MudSelectItem Value="@("All")">All providers</MudSelectItem>
             <MudSelectItem Value="@("Aws")">AWS</MudSelectItem>
             <MudSelectItem Value="@("Azure")">Azure</MudSelectItem>
             <MudSelectItem Value="@("Gcp")">GCP</MudSelectItem>
         </MudSelect>
-        <MudSelect T="int?" @bind-Value="_clientId" Label="Client" Dense="true" Clearable="true" Style="min-width:170px">
+        <MudSelect T="int?" @bind-Value="_clientId" Label="Client" Dense="true" Clearable="true" Class="fx-filter-control">
             @foreach (var client in _clients)
             {
                 <MudSelectItem T="int?" Value="@client.Id">@client.Name</MudSelectItem>
             }
         </MudSelect>
-        <MudDatePicker @bind-Date="_from" Label="From" Style="min-width:145px" />
-        <MudDatePicker @bind-Date="_to" Label="To" Style="min-width:145px" />
+        <MudDatePicker @bind-Date="_from" Label="From" Class="fx-filter-control" />
+        <MudDatePicker @bind-Date="_to" Label="To" Class="fx-filter-control" />
         <MudSpacer />
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+        <MudButton Class="fx-filter-submit" Variant="Variant.Outlined" Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Check"
                    OnClick="LoadAsync">
             Apply filters
@@ -156,13 +157,13 @@
                     @foreach (var row in _budgetRows)
                     {
                         <tr>
-                            <td>@row.Project</td>
-                            <td>@row.Budget.ToString("C0")</td>
-                            <td>@row.Spend.ToString("C0")</td>
-                            <td>
+                            <td data-label="Project">@row.Project</td>
+                            <td data-label="Budget">@row.Budget.ToString("C0")</td>
+                            <td data-label="Spend">@row.Spend.ToString("C0")</td>
+                            <td data-label="Used">
                                 <div class="fx-budget-percent">
                                     <MudProgressLinear Color="@(row.Pct >= 100 ? Color.Error : row.Pct >= 80 ? Color.Warning : Color.Success)"
-                                                       Value="@Math.Min(row.Pct, 100)" Style="min-width:72px" />
+                                                       Value="@Math.Min(row.Pct, 100)" />
                                     <span>@row.Pct%</span>
                                 </div>
                             </td>

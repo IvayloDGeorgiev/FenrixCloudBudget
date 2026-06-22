@@ -1,0 +1,47 @@
+<AppModal Title="@Title"
+          Width="compact"
+          Role="alertdialog"
+          DescriptionId="@_descriptionId"
+          ShowCloseButton="false"
+          OnCancel="CancelAsync">
+    <ChildContent>
+        <div class="fx-confirm-modal-body">
+            <div class="fx-delete-confirm">
+                <div class="fx-delete-confirm-icon">
+                    <MudIcon Icon="@Icon" />
+                </div>
+                <div>
+                    <strong>@ItemName</strong>
+                    <p id="@_descriptionId">@Message</p>
+                </div>
+            </div>
+        </div>
+    </ChildContent>
+    <FooterContent>
+        <div class="fx-confirm-modal-actions">
+            <MudButton OnClick="CancelAsync">@CancelText</MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Delete"
+                       OnClick="ConfirmAsync">
+                @ConfirmText
+            </MudButton>
+        </div>
+    </FooterContent>
+</AppModal>
+
+@code {
+    private readonly string _descriptionId = $"fx-confirm-description-{Guid.NewGuid():N}";
+
+    [Parameter] public string Title { get; set; } = "Delete item?";
+    [Parameter] public string ItemName { get; set; } = "";
+    [Parameter] public string Message { get; set; } = "This action cannot be undone.";
+    [Parameter] public string ConfirmText { get; set; } = "Delete";
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public string Icon { get; set; } = Icons.Material.Filled.DeleteForever;
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private Task ConfirmAsync() => OnConfirm.InvokeAsync();
+    private Task CancelAsync() => OnCancel.InvokeAsync();
+}

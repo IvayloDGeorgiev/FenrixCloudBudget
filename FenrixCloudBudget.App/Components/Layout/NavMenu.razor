@@ -1,3 +1,6 @@
+@inject AuthSessionService Auth
+@implements IDisposable
+
 <nav class="fx-nav" aria-label="Primary navigation">
     <a class="fx-nav-brand" href="/">
         <span class="fx-brand-mark" aria-hidden="true">
@@ -40,10 +43,13 @@
             <span class="fx-nav-icon"><MudIcon Icon="@Icons.Material.Filled.CloudQueue" Size="Size.Small" /></span>
             <span>Cloud services</span>
         </NavLink>
-        <NavLink class="fx-nav-link" href="/users">
-            <span class="fx-nav-icon"><MudIcon Icon="@Icons.Material.Filled.ManageAccounts" Size="Size.Small" /></span>
-            <span>Users</span>
-        </NavLink>
+        @if (Auth.IsAdmin)
+        {
+            <NavLink class="fx-nav-link" href="/users">
+                <span class="fx-nav-icon"><MudIcon Icon="@Icons.Material.Filled.ManageAccounts" Size="Size.Small" /></span>
+                <span>Users</span>
+            </NavLink>
+        }
     </div>
 
     <div class="fx-nav-spacer"></div>
@@ -64,7 +70,13 @@
 
     <div class="fx-nav-foot">
         <span class="fx-status-pulse"></span>
-        <span>Local workspace</span>
+        <span>@(Auth.IsAdmin ? "Admin session" : "Member session")</span>
         <small>v0.1</small>
     </div>
 </nav>
+
+@code {
+    protected override void OnInitialized() => Auth.Changed += OnAuthChanged;
+    private void OnAuthChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Auth.Changed -= OnAuthChanged;
+}
