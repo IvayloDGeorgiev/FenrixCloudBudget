@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-android;net10.0-windows10.0.19041.0</TargetFrameworks>
+    <!-- Add net10.0-ios;net10.0-maccatalyst in Phase 6 -->
+    <OutputType>Exe</OutputType>
+    <RootNamespace>FenrixCloudBudget.App</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <EnableDefaultCssItems>false</EnableDefaultCssItems>
+
+    <ApplicationTitle>FenrixCloudBudget</ApplicationTitle>
+    <ApplicationId>com.fenrix.cloudbudget</ApplicationId>
+    <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+    <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- App Icon & Splash -->
+    <MauiIcon Include="Resources\appicon.svg" ForegroundFile="Resources\appiconfg.svg" Color="#0B1020" />
+    <MauiSplashScreen Include="Resources\splash.svg" Color="#0B1020" BaseSize="256,256" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+    <PackageReference Include="MudBlazor" Version="8.*" />
+    <PackageReference Include="Plugin.LocalNotification" Version="11.*" />
+    <!-- AdMob (Android). See Components/Shared/AdBanner + Platforms/Android. -->
+    <PackageReference Include="Plugin.MauiMTAdmob" Version="1.*" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FenrixCloudBudget.Core\FenrixCloudBudget.Core.csproj" />
+    <ProjectReference Include="..\FenrixCloudBudget.Data\FenrixCloudBudget.Data.csproj" />
+    <ProjectReference Include="..\FenrixCloudBudget.Cloud\FenrixCloudBudget.Cloud.csproj" />
+    <ProjectReference Include="..\FenrixCloudBudget.Services\FenrixCloudBudget.Services.csproj" />
+  </ItemGroup>
+</Project>

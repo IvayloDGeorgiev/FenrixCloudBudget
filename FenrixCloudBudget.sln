@@ -1,0 +1,57 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.0.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FenrixCloudBudget.Core", "FenrixCloudBudget.Core\FenrixCloudBudget.Core.csproj", "{28DCE7AF-3F37-4A2A-A8CC-6FA94998C151}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FenrixCloudBudget.Data", "FenrixCloudBudget.Data\FenrixCloudBudget.Data.csproj", "{84DCD272-61CF-4FA7-B4EE-C291E1038FE6}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FenrixCloudBudget.Cloud", "FenrixCloudBudget.Cloud\FenrixCloudBudget.Cloud.csproj", "{AFD4A1D9-3697-4008-B6A0-499D4F5EAF18}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FenrixCloudBudget.Services", "FenrixCloudBudget.Services\FenrixCloudBudget.Services.csproj", "{AB36CACD-AE9B-403B-95BB-FDFE2A2C32A7}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FenrixCloudBudget.App", "FenrixCloudBudget.App\FenrixCloudBudget.App.csproj", "{C64F442C-B559-45C7-9279-5182436BAC4D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FenrixCloudBudget.Api", "FenrixCloudBudget.Api\FenrixCloudBudget.Api.csproj", "{46CC7A2C-5F73-4638-AFA6-186D2C807EF7}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FenrixCloudBudget.Tests", "FenrixCloudBudget.Tests\FenrixCloudBudget.Tests.csproj", "{7A056412-8E70-46A1-A76E-77F19EAE1CD9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{28DCE7AF-3F37-4A2A-A8CC-6FA94998C151}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{28DCE7AF-3F37-4A2A-A8CC-6FA94998C151}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{28DCE7AF-3F37-4A2A-A8CC-6FA94998C151}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{28DCE7AF-3F37-4A2A-A8CC-6FA94998C151}.Release|Any CPU.Build.0 = Release|Any CPU
+		{84DCD272-61CF-4FA7-B4EE-C291E1038FE6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{84DCD272-61CF-4FA7-B4EE-C291E1038FE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{84DCD272-61CF-4FA7-B4EE-C291E1038FE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{84DCD272-61CF-4FA7-B4EE-C291E1038FE6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AFD4A1D9-3697-4008-B6A0-499D4F5EAF18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AFD4A1D9-3697-4008-B6A0-499D4F5EAF18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AFD4A1D9-3697-4008-B6A0-499D4F5EAF18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AFD4A1D9-3697-4008-B6A0-499D4F5EAF18}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AB36CACD-AE9B-403B-95BB-FDFE2A2C32A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB36CACD-AE9B-403B-95BB-FDFE2A2C32A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB36CACD-AE9B-403B-95BB-FDFE2A2C32A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB36CACD-AE9B-403B-95BB-FDFE2A2C32A7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C64F442C-B559-45C7-9279-5182436BAC4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C64F442C-B559-45C7-9279-5182436BAC4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C64F442C-B559-45C7-9279-5182436BAC4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C64F442C-B559-45C7-9279-5182436BAC4D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{46CC7A2C-5F73-4638-AFA6-186D2C807EF7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{46CC7A2C-5F73-4638-AFA6-186D2C807EF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{46CC7A2C-5F73-4638-AFA6-186D2C807EF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{46CC7A2C-5F73-4638-AFA6-186D2C807EF7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7A056412-8E70-46A1-A76E-77F19EAE1CD9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7A056412-8E70-46A1-A76E-77F19EAE1CD9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7A056412-8E70-46A1-A76E-77F19EAE1CD9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7A056412-8E70-46A1-A76E-77F19EAE1CD9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>FenrixCloudBudget.Cloud</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- AWS -->
+    <PackageReference Include="AWSSDK.CostExplorer" Version="3.7.*" />
+    <PackageReference Include="AWSSDK.ResourceGroupsTaggingAPI" Version="3.7.*" />
+    <!-- Azure -->
+    <PackageReference Include="Azure.Identity" Version="1.13.*" />
+    <PackageReference Include="Azure.ResourceManager" Version="1.13.*" />
+    <PackageReference Include="Azure.ResourceManager.ResourceGraph" Version="1.1.*" />
+    <!-- GCP -->
+    <PackageReference Include="Google.Cloud.BigQuery.V2" Version="3.*" />
+    <PackageReference Include="Google.Cloud.Asset.V1" Version="3.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FenrixCloudBudget.Core\FenrixCloudBudget.Core.csproj" />
+  </ItemGroup>
+</Project>

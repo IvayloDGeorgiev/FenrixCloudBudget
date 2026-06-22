@@ -1,0 +1,26 @@
+## .NET / Visual Studio
+bin/
+obj/
+.vs/
+*.user
+*.suo
+artifacts/
+
+## MAUI / Android
+*.keystore
+*.jks
+*.aab
+*.apk
+Platforms/Android/google-services.json
+
+## Local secrets & DB
+*.db
+*.db-shm
+*.db-wal
+appsettings.*.Local.json
+secrets.json
+.env
+
+## OS
+.DS_Store
+Thumbs.db
