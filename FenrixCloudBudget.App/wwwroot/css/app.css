@@ -1399,6 +1399,26 @@ button,
     overflow-wrap: anywhere;
 }
 
+/* Locked (cloud-synced) service rows: read-only, visually distinct from editable manual rows. */
+.fx-service-locked {
+    background: var(--fx-surface);
+    border-style: dashed;
+    opacity: 0.92;
+}
+
+.fx-service-type {
+    color: var(--fx-text-muted);
+    font-size: 12px;
+}
+
+/* Project tile budget line. */
+.fx-project-budget {
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--fx-primary);
+}
+
 .fx-discovery-list {
     max-height: 220px;
     margin-top: 9px;

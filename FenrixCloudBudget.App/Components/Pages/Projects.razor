@@ -30,6 +30,12 @@
             <div class="fx-tile-stat fx-project-spend">
                 @p.Services.Sum(s => s.EstimatedCost).ToString("C0") <small>/mo est. (@p.Currency)</small>
             </div>
+            @if (p.Budgets.Any(b => b.IsEnabled))
+            {
+                <div class="fx-project-budget">
+                    Budget: @p.Budgets.Where(b => b.IsEnabled).Sum(b => b.Amount).ToString("C0") /@(p.Budgets.First(b => b.IsEnabled).Period.ToString().ToLower())
+                </div>
+            }
         </button>
     }
     @if (_projects.Count == 0) { <Empty Text="No projects yet." /> }
@@ -60,16 +66,40 @@
 
             <MudText Typo="Typo.subtitle2" Class="mt-4">Services</MudText>
             <MudText Typo="Typo.caption" Class="mb-2">
-                Add services manually, or use "Choose existing resources" (Phase 3) to import from a connected account.
+                Manually-added services can be edited or removed. Services pulled from a connected
+                cloud account are locked — manage those in <strong>Cloud Services</strong>.
             </MudText>
+
             @foreach (var s in _editing.Services)
             {
-                <div class="fx-service-row">
-                    <span class="fx-chip @s.Provider.ToString().ToLower()">@s.Provider</span>
-                    <span class="fx-service-name">@s.Name</span>
-                    <strong>@s.EstimatedCost.ToString("C0")</strong>
-                </div>
+                @if (s.Source == ServiceSource.Manual)
+                {
+                    <div class="fx-service-row">
+                        <MudSelect T="CloudProvider" @bind-Value="s.Provider" Dense="true" Class="fx-form-compact">
+                            <MudSelectItem Value="CloudProvider.Aws">AWS</MudSelectItem>
+                            <MudSelectItem Value="CloudProvider.Azure">Azure</MudSelectItem>
+                            <MudSelectItem Value="CloudProvider.Gcp">GCP</MudSelectItem>
+                        </MudSelect>
+                        <MudTextField @bind-Value="s.Name" Label="Name" Class="fx-form-grow" />
+                        <MudNumericField @bind-Value="s.EstimatedCost" Label="Est./mo" Class="fx-form-compact" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                       aria-label="Remove service" OnClick="@(() => RemoveService(s))" />
+                    </div>
+                }
+                else
+                {
+                    <div class="fx-service-row fx-service-locked">
+                        <span class="fx-chip @s.Provider.ToString().ToLower()">@s.Provider</span>
+                        <span class="fx-service-name">@s.Name</span>
+                        <span class="fx-service-type">@s.ServiceType</span>
+                        <strong>@s.EstimatedCost.ToString("C0")</strong>
+                        <MudTooltip Text="@($"Synced from {AccountName(s.CloudAccountId)} — manage in Cloud Services")">
+                            <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
+                        </MudTooltip>
+                    </div>
+                }
             }
+
             <div class="fx-service-entry">
                 <MudTextField @bind-Value="_newService.Name" Label="Service name" Class="fx-form-grow" />
                 <MudSelect T="CloudProvider" @bind-Value="_newService.Provider" Label="Provider" Class="fx-form-compact">
@@ -79,6 +109,40 @@
                 </MudSelect>
                 <MudNumericField @bind-Value="_newService.EstimatedCost" Label="Est./mo" Class="fx-form-compact" />
                 <MudButton Class="fx-inline-action" OnClick="AddService">Add</MudButton>
+            </div>
+
+            <MudDivider Class="my-3" />
+            <MudText Typo="Typo.subtitle2">Budgets</MudText>
+            <MudText Typo="Typo.caption" Class="mb-2">
+                Set a spend cap per project. You'll get alerts as usage approaches each threshold —
+                essential for pay-as-you-go services so you're warned before overspending.
+            </MudText>
+
+            @foreach (var b in _editing.Budgets)
+            {
+                <div class="fx-service-row">
+                    <MudTextField @bind-Value="b.Name" Label="Name" Class="fx-form-grow" />
+                    <MudNumericField @bind-Value="b.Amount" Label="@($"Amount ({_editing.Currency})")" Class="fx-form-compact" />
+                    <MudSelect T="BudgetPeriod" @bind-Value="b.Period" Label="Period" Class="fx-form-compact">
+                        <MudSelectItem Value="BudgetPeriod.Monthly">Monthly</MudSelectItem>
+                        <MudSelectItem Value="BudgetPeriod.Quarterly">Quarterly</MudSelectItem>
+                        <MudSelectItem Value="BudgetPeriod.Annual">Annual</MudSelectItem>
+                    </MudSelect>
+                    <MudTextField @bind-Value="b.Thresholds" Label="Alerts %" Class="fx-form-compact" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                   aria-label="Remove budget" OnClick="@(() => RemoveBudget(b))" />
+                </div>
+            }
+
+            <div class="fx-service-entry">
+                <MudTextField @bind-Value="_newBudget.Name" Label="Budget name" Class="fx-form-grow" Placeholder="e.g. Monthly cap" />
+                <MudNumericField @bind-Value="_newBudget.Amount" Label="Amount" Class="fx-form-compact" />
+                <MudSelect T="BudgetPeriod" @bind-Value="_newBudget.Period" Label="Period" Class="fx-form-compact">
+                    <MudSelectItem Value="BudgetPeriod.Monthly">Monthly</MudSelectItem>
+                    <MudSelectItem Value="BudgetPeriod.Quarterly">Quarterly</MudSelectItem>
+                    <MudSelectItem Value="BudgetPeriod.Annual">Annual</MudSelectItem>
+                </MudSelect>
+                <MudButton Class="fx-inline-action" OnClick="AddBudget">Add</MudButton>
             </div>
 
             <MudDivider Class="my-3" />
@@ -129,6 +193,7 @@
     private List<CloudAccount> _accounts = new();
     private Project? _editing;
     private Service _newService = new();
+    private Budget _newBudget = new() { Thresholds = "50,80,100" };
 
     // "Choose existing resources" state
     private int? _discoverAccountId;
@@ -141,15 +206,24 @@
     private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        _projects = await db.Projects.Include(p => p.Client).Include(p => p.Services).OrderBy(p => p.Name).ToListAsync();
+        _projects = await db.Projects
+            .Include(p => p.Client)
+            .Include(p => p.Services)
+            .Include(p => p.Budgets)
+            .OrderBy(p => p.Name)
+            .ToListAsync();
         _clients = await db.Clients.OrderBy(c => c.Name).ToListAsync();
         _accounts = await db.CloudAccounts.OrderBy(a => a.DisplayName).ToListAsync();
     }
+
+    private string AccountName(int? accountId)
+        => _accounts.FirstOrDefault(a => a.Id == accountId)?.DisplayName ?? "cloud account";
 
     private void Edit(Project p)
     {
         _editing = p;
         _newService = new Service();
+        _newBudget = new Budget { Thresholds = "50,80,100", Period = BudgetPeriod.Monthly };
         _discovered = null;
         _selected.Clear();
         _discoverAccountId = _accounts.FirstOrDefault()?.Id;
@@ -206,18 +280,136 @@
     {
         if (_editing is null || string.IsNullOrWhiteSpace(_newService.Name)) return;
         _newService.Currency = _editing.Currency;
+        _newService.Source = ServiceSource.Manual;
         _editing.Services.Add(_newService);
         _newService = new Service();
     }
+
+    // Only manual services reach this (connected ones don't render a remove button).
+    private void RemoveService(Service s)
+    {
+        if (s.Source != ServiceSource.Manual) return;
+        _editing?.Services.Remove(s);
+    }
+
+    private void AddBudget()
+    {
+        if (_editing is null) return;
+        _newBudget.Currency = _editing.Currency;
+        _newBudget.IsEnabled = true;
+        if (string.IsNullOrWhiteSpace(_newBudget.Name)) _newBudget.Name = "Budget";
+        if (string.IsNullOrWhiteSpace(_newBudget.Thresholds)) _newBudget.Thresholds = "50,80,100";
+        _editing.Budgets.Add(_newBudget);
+        _newBudget = new Budget { Thresholds = "50,80,100", Period = BudgetPeriod.Monthly };
+    }
+
+    private void RemoveBudget(Budget b) => _editing?.Budgets.Remove(b);
 
     private async Task SaveAsync()
     {
         if (_editing is null || string.IsNullOrWhiteSpace(_editing.Name)) return;
         var project = _editing;
         await using var db = await DbFactory.CreateDbContextAsync();
-        if (project.Id == 0) db.Projects.Add(project);
-        else db.Projects.Update(project);
-        await db.SaveChangesAsync();
+
+        if (project.Id == 0)
+        {
+            // New project: the whole graph (services + budgets) is inserted together.
+            foreach (var b in project.Budgets) b.Currency = project.Currency;
+            db.Projects.Add(project);
+            await db.SaveChangesAsync();
+        }
+        else
+        {
+            // Existing project: reconcile against the tracked entity so removed children are deleted
+            // (EF's detached Update does not delete orphaned collection items).
+            var existing = await db.Projects
+                .Include(p => p.Services)
+                .Include(p => p.Budgets)
+                .FirstAsync(p => p.Id == project.Id);
+
+            existing.Name = project.Name;
+            existing.Description = project.Description;
+            existing.ClientId = project.ClientId;
+            existing.Currency = project.Currency;
+            existing.Status = project.Status;
+
+            // ---- Services ----
+            var keepServiceIds = project.Services.Where(s => s.Id > 0).Select(s => s.Id).ToHashSet();
+            foreach (var es in existing.Services.ToList())
+            {
+                // Remove only manual services the user deleted; connected services stay (managed elsewhere).
+                if (es.Source == ServiceSource.Manual && !keepServiceIds.Contains(es.Id))
+                    db.Services.Remove(es);
+            }
+            foreach (var s in project.Services)
+            {
+                if (s.Id == 0)
+                {
+                    existing.Services.Add(new Service
+                    {
+                        Name = s.Name,
+                        Provider = s.Provider,
+                        ServiceType = s.ServiceType,
+                        Tier = s.Tier,
+                        Source = s.Source,
+                        ExternalResourceId = s.ExternalResourceId,
+                        CloudAccountId = s.CloudAccountId,
+                        EstimatedCost = s.EstimatedCost,
+                        EstimatePeriod = s.EstimatePeriod,
+                        Currency = project.Currency
+                    });
+                }
+                else
+                {
+                    var match = existing.Services.FirstOrDefault(x => x.Id == s.Id);
+                    if (match is { Source: ServiceSource.Manual })
+                    {
+                        match.Name = s.Name;
+                        match.Provider = s.Provider;
+                        match.EstimatedCost = s.EstimatedCost;
+                        match.Currency = project.Currency;
+                    }
+                }
+            }
+
+            // ---- Budgets ----
+            var keepBudgetIds = project.Budgets.Where(b => b.Id > 0).Select(b => b.Id).ToHashSet();
+            foreach (var eb in existing.Budgets.ToList())
+                if (!keepBudgetIds.Contains(eb.Id))
+                    db.Budgets.Remove(eb);
+
+            foreach (var b in project.Budgets)
+            {
+                if (b.Id == 0)
+                {
+                    existing.Budgets.Add(new Budget
+                    {
+                        Name = string.IsNullOrWhiteSpace(b.Name) ? "Budget" : b.Name,
+                        Period = b.Period,
+                        Amount = b.Amount,
+                        Currency = project.Currency,
+                        Thresholds = string.IsNullOrWhiteSpace(b.Thresholds) ? "50,80,100" : b.Thresholds,
+                        IsEnabled = true
+                    });
+                }
+                else
+                {
+                    var match = existing.Budgets.FirstOrDefault(x => x.Id == b.Id);
+                    if (match is not null)
+                    {
+                        match.Name = b.Name;
+                        match.Period = b.Period;
+                        match.Amount = b.Amount;
+                        match.Currency = project.Currency;
+                        match.Thresholds = b.Thresholds;
+                        match.IsEnabled = b.IsEnabled;
+                    }
+                }
+            }
+
+            await db.SaveChangesAsync();
+        }
+
         _editing = null;
         await InvokeAsync(StateHasChanged);
         Snackbar.Add("Project saved", Severity.Success);

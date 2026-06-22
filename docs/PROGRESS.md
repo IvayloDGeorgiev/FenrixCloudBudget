@@ -5,7 +5,14 @@
 > The full design rationale lives in `IMPLEMENTATION_PLAN.md`.
 
 **Last updated:** 2026-06-22
-**Current focus:** Phase 5 authentication and workspace user-management foundation implemented. Next: manual Windows/API verification, then complete hosted OTP sign-in and bidirectional SaaS sync.
+**Current focus:** Phases 4–5 implemented (via Codex). Latest change: Projects page now supports editing/removing **manual** services (cloud-synced services are locked) and full **per-project budget** CRUD so pay-as-you-go spend triggers threshold alerts before overspend. Next: manual Windows/API verification, then complete hosted OTP sign-in and bidirectional SaaS sync.
+
+### Recent: project services & budgets (UX request)
+- ✅ Manual services are inline-editable (name/provider/est. cost) and removable on the Projects editor.
+- ✅ Cloud-synced services are locked (read-only, lock icon) — managed via Cloud Services.
+- ✅ Per-project budgets: add/edit/remove with amount, period, and alert thresholds; surfaced on project tiles.
+- ✅ `SaveAsync` reconciles the tracked entity (EF detached `Update` does not delete removed children), so removals persist.
+- Note: no DB schema change (Budget/Service tables already existed) — no new migration required.
 
 Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 
