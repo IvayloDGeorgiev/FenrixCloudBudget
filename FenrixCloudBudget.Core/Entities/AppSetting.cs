@@ -5,7 +5,7 @@ namespace FenrixCloudBudget.Core.Entities;
 /// <summary>Singleton-ish app configuration row (theme, data mode, sync interval, auth mode).</summary>
 public class AppSetting : EntityBase
 {
-    public string ThemeId { get; set; } = "aurora";
+    public string ThemeId { get; set; } = "daybreak";
     public bool FollowSystemDarkMode { get; set; } = true;
 
     public DataProviderMode DataMode { get; set; } = DataProviderMode.Sqlite;

@@ -11,6 +11,7 @@
     <PackageReference Include="Azure.Identity" Version="1.13.*" />
     <PackageReference Include="Azure.ResourceManager" Version="1.13.*" />
     <PackageReference Include="Azure.ResourceManager.ResourceGraph" Version="1.1.*" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
     <!-- GCP -->
     <PackageReference Include="Google.Cloud.BigQuery.V2" Version="3.*" />
     <PackageReference Include="Google.Cloud.Asset.V1" Version="3.*" />

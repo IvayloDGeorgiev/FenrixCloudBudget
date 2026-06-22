@@ -5,7 +5,7 @@
 > The full design rationale lives in `IMPLEMENTATION_PLAN.md`.
 
 **Last updated:** 2026-06-22
-**Current focus:** Phase 3 (cloud connect + discovery) implemented. Needs a new EF migration for `CloudAccount.OptionsJson`, then build.
+**Current focus:** Phase 4 code path implemented and tested. Next: validate against live AWS/Azure/GCP accounts and add app-registration secret/certificate expiry metadata.
 
 Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 
@@ -14,8 +14,9 @@ Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 ## Phase 0 — Foundations & spike
 - ✅ Solution + 7 projects, flat layout at repo root, `Directory.Build.props`, `global.json`, `.gitignore`.
 - ✅ EF Core + SQLite wired (`AppDbContext`, providers, `DesignTimeDbContextFactory`).
-- 🟡 Risky-integration spikes (one real AWS/Azure/GCP call, AdMob banner) — **left to do on-device**; connector code is written but unverified against live clouds from here.
-- **Next:** run `dotnet ef migrations add InitialCreate`, then `dotnet build` on Windows to confirm the toolchain.
+- 🟡 Risky-integration spikes (one real AWS/Azure/GCP call, AdMob banner) — **left to do on-device/live accounts**; connector code is written but unverified against real clouds from here.
+- ✅ Initial EF migration generated and applied successfully to a clean SQLite database; full Windows + Android solution build succeeds.
+- **Next:** launch the Windows app and validate the live-cloud/AdMob integrations with real credentials/device IDs.
 
 ## Phase 1 — Core app shell & manual budgeting
 - ✅ Splash, tile landing (`Home.razor`), nav shell, Aurora theme (+3 more themes).
@@ -26,7 +27,8 @@ Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 - **Next:** verify the app launches on Windows; polish the project→service "choose existing" entry point (stub present).
 
 ## Phase 2 — Polish, theming, Play Store
-- ✅ 4 themes + Settings → Appearance; Settings → Data & Connections (mode + interval); Settings → Email & Notifications (dynamic per-method fields, test button).
+- ✅ 2026 visual redesign: atmospheric responsive shell, animated/reduced-motion-aware surfaces, redesigned home/dashboard, and 4 full visual personalities (Daybreak, Nebula, Graphite, Tide) with matching MudBlazor palettes and live Appearance previews.
+- ✅ Settings → Appearance persists the selected personality immediately; legacy theme IDs migrate automatically. Settings → Data & Connections (mode + interval); Settings → Email & Notifications (dynamic per-method fields, test button).
 - 🟡 Email secret persistence via `ISecretStore` from Settings UI — non-secret fields save; **wire secret save/mask round-trip**.
 - 🟡 AdMob: CSS ad-slot placeholder only — **integrate Plugin.MauiMTAdmob + UMP consent**.
 - ⬜ Report export (PDF/CSV).
@@ -40,14 +42,16 @@ Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 - ✅ Cloud Services page: connect-account dialog (dynamic per-provider fields) + per-account "Discover resources".
 - ✅ "Choose existing resources" in Projects: pick account → discover → multi-select → added as connected Services.
 - 🟡 Reminders can be **linked** to a connected account (picker added); **auto-detecting the secret/cert expiry date is still TODO** (needs the cost/metadata sync in Phase 4).
-- **Next (Phase 4):** implement Azure cost query + `CostSyncService`; auto-fill reminder expiry from app-registration metadata.
-- **Migration needed:** `dotnet ef migrations add AddCloudAccountOptions` (or regenerate `InitialCreate` if not yet created) for the new `OptionsJson` column.
+- **Next:** auto-fill reminder expiry from app-registration secret/certificate metadata.
+- ✅ `InitialCreate` migration includes `CloudAccount.OptionsJson` and the Phase 4 daily-cost index.
 
 ## Phase 4 — Cost sync & live dashboards
-- 🟡 `GetCostsAsync` implemented for AWS + GCP; **Azure cost query is a TODO stub** (needs the /query POST + token + 429 back-off).
-- ⬜ Background `CostSyncService` (interval, caching, AWS per-request cost awareness) — scheduler has the hook (`AlertSchedulerService` TODO).
-- ⬜ Dashboard v2 on synced `CostRecord` time-series + "last synced" labels.
-- **Next:** implement Azure cost query; add CostSyncService writing CostRecords; switch dashboard to synced data when present.
+- ✅ `GetCostsAsync` implemented for AWS, Azure, and GCP. Azure uses the Cost Management `/query` API with bearer auth, pagination, and documented 429/503 retry headers; AWS pagination and inclusive date handling fixed.
+- ✅ Background `CostSyncService`: rolling 62-day cache replacement, configurable interval, 12-hour minimum automatic AWS polling, per-account failure isolation, scheduler integration, and no duplicate secret rows during re-authentication.
+- ✅ Provider costs map to connected services by resource ID where available, with provider service-name aliases and even splitting for account-level AWS service costs.
+- ✅ Dashboard v2 reads synced `CostRecord` time-series for its date filters, falls back to estimates only for unsynced/manual services, shows freshness, and offers forced manual refresh.
+- ✅ Phase 4 sync/re-auth and mixed actual/estimate budget tests added; full suite passes (10 tests).
+- **Next:** validate all three connectors against live billing data; review any unmatched-cost rows and expand provider aliases as real account data reveals them.
 
 ## Phase 5 — Multi-user, backend & auth
 - ✅ API skeleton: `/health`, `/auth/request` + `/auth/verify` (hashed, expiring, rate-limited OTP), `/api` sync read endpoints.
@@ -61,7 +65,8 @@ Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 ---
 
 ## Known cross-cutting TODOs
-- Generate the initial EF migration (one-time, on Windows): see `FenrixCloudBudget.Data/Migrations/README.md`.
+- ✅ Reminder lifecycle controls are reversible: Active → Completed, Snoozed/Completed/Dismissed → Active; reminders can be permanently deleted after confirmation.
 - Replace placeholder brand SVGs in `FenrixCloudBudget.App/Resources/` with final art.
 - Amazon SES + Azure Communication Services email adapters expose their field schema but need their SDK packages wired (marked TODO in `PendingCloudEmailSenders.cs`).
 - Settings → "Test connection" for SQL Server runs on the live provider in the desktop build (placeholder text in UI).
+- Review/upgrade dependencies currently producing NuGet vulnerability warnings (`SQLitePCLRaw.lib.e_sqlite3`, `System.Security.Cryptography.Xml`, and transitive `System.Drawing.Common`) plus the AndroidX lifecycle version constraint warning.

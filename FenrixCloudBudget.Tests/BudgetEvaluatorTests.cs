@@ -51,6 +51,62 @@ public class BudgetEvaluatorTests
         Assert.Empty(spy.Dispatched);
     }
 
+    [Fact]
+    public async Task UsesActualPerConnectedService_AndEstimateForManualService()
+    {
+        using var test = new TestDb();
+        await using (var db = test.NewContext())
+        {
+            var account = new CloudAccount
+            {
+                DisplayName = "AWS",
+                Provider = CloudProvider.Aws,
+                LastSyncedUtc = DateTimeOffset.UtcNow
+            };
+            var project = new Project { Name = "Mixed", Currency = "USD" };
+            var connected = new Service
+            {
+                Name = "EC2",
+                Provider = CloudProvider.Aws,
+                Source = ServiceSource.Connected,
+                CloudAccount = account,
+                EstimatedCost = 90m,
+                Currency = "USD"
+            };
+            project.Services.Add(connected);
+            project.Services.Add(new Service
+            {
+                Name = "Manual support",
+                Provider = CloudProvider.Aws,
+                Source = ServiceSource.Manual,
+                EstimatedCost = 30m,
+                Currency = "USD"
+            });
+            project.Budgets.Add(new Budget
+            {
+                Name = "cap",
+                Amount = 100m,
+                Currency = "USD",
+                Thresholds = "50,80,100"
+            });
+            db.Projects.Add(project);
+            db.CostRecords.Add(new CostRecord
+            {
+                Service = connected,
+                Date = DateOnly.FromDateTime(DateTime.UtcNow),
+                Amount = 20m,
+                Currency = "USD"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var spy = new SpyNotificationService();
+        await new BudgetEvaluator(test.Factory, spy).EvaluateAllAsync();
+
+        Assert.Single(spy.Dispatched);
+        Assert.Contains("50%", spy.Dispatched[0].Title); // 20 actual + 30 manual estimate
+    }
+
     private sealed class SpyNotificationService : INotificationService
     {
         public List<NotificationRequest> Dispatched { get; } = new();

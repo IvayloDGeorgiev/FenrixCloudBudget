@@ -1,18 +1,57 @@
 @inherits LayoutComponentBase
 @inject ThemeService Theme
 @inject IJSRuntime JS
+@inject IDbContextFactory<AppDbContext> DbFactory
 @implements IDisposable
+
+<div class="fx-app-background" aria-hidden="true">
+    <div class="fx-ambient-orb fx-orb-one"></div>
+    <div class="fx-ambient-orb fx-orb-two"></div>
+    <div class="fx-grid-wash"></div>
+</div>
 
 <div class="fx-shell">
     <NavMenu />
-    <main class="fx-main">
-        <h1 style="display:none">FenrixCloudBudget</h1>
-        @Body
-    </main>
+    <div class="fx-workspace">
+        <header class="fx-topbar">
+            <div class="fx-topbar-context">
+                <span class="fx-live-dot"></span>
+                <span>FinOps workspace</span>
+            </div>
+            <div class="fx-topbar-actions">
+                <a class="fx-command-pill" href="/settings">
+                    <span class="fx-theme-swatch" style="background:var(--fx-gradient)"></span>
+                    @Theme.Current.Name
+                </a>
+                <div class="fx-avatar" title="Local workspace">IV</div>
+            </div>
+        </header>
+
+        <main class="fx-main">
+            <h1 style="display:none">FenrixCloudBudget</h1>
+            <div class="fx-page-enter">
+                @Body
+            </div>
+        </main>
+    </div>
 </div>
 
 @code {
-    protected override void OnInitialized() => Theme.Changed += OnThemeChanged;
+    protected override async Task OnInitializedAsync()
+    {
+        Theme.Changed += OnThemeChanged;
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var savedTheme = await db.AppSettings.Select(setting => setting.ThemeId).FirstOrDefaultAsync();
+            Theme.SetTheme(savedTheme);
+        }
+        catch
+        {
+            // The database can still be migrating during the first frame; the default theme is safe.
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -26,9 +65,11 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    // Themes are CSS-variable token sets; switching = setting data-theme on <html>.
-    private async Task ApplyThemeAsync()
-        => await JS.InvokeVoidAsync("document.documentElement.setAttribute", "data-theme", Theme.CurrentThemeId);
+    private Task ApplyThemeAsync()
+        => JS.InvokeVoidAsync(
+            "document.documentElement.setAttribute",
+            "data-theme",
+            Theme.CurrentThemeId).AsTask();
 
     public void Dispose() => Theme.Changed -= OnThemeChanged;
 }

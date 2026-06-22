@@ -85,7 +85,7 @@ public class CostRecordConfig : IEntityTypeConfiguration<CostRecord>
         b.Property(x => x.Amount).HasColumnType(Money.Type);
         b.Property(x => x.Currency).IsRequired().HasMaxLength(3);
         b.HasOne(x => x.Service).WithMany(s => s.CostRecords).HasForeignKey(x => x.ServiceId).OnDelete(DeleteBehavior.Cascade);
-        b.HasIndex(x => new { x.ServiceId, x.Date });
+        b.HasIndex(x => new { x.ServiceId, x.Date }).IsUnique();
     }
 }
 

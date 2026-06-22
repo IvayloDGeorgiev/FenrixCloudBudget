@@ -1,18 +1,17 @@
 # Migrations
 
-This folder holds EF Core migrations. The **initial migration must be generated on
-your Windows machine** (the build sandbox has no .NET SDK), then it travels with the repo.
+This folder holds EF Core migrations. `InitialCreate` was generated on 2026-06-22 and
+includes the Phase 3 `CloudAccount.OptionsJson` field plus the Phase 4 daily-cost index.
 
-Generate it once:
+Add future migrations from the repo root:
 
 ```powershell
-# from the repo root
-dotnet tool install --global dotnet-ef        # first time only
-dotnet ef migrations add InitialCreate `
-  --project FenrixCloudBudget.Data `
-  --startup-project FenrixCloudBudget.Api
+dotnet ef migrations add MeaningfulMigrationName `
+  --project FenrixCloudBudget.Data\FenrixCloudBudget.Data.csproj `
+  --startup-project FenrixCloudBudget.Data\FenrixCloudBudget.Data.csproj `
+  --output-dir Migrations
 ```
 
 `DesignTimeDbContextFactory` targets SQLite, so no live database is needed to scaffold
 the migration. At runtime each `IDataProvider.InitializeAsync()` calls `Database.Migrate()`
-to apply them (SQLite by default; the same model also applies to SQL Server / Cloud SQL).
+to apply pending migrations.

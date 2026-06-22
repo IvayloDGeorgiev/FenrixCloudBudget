@@ -49,7 +49,7 @@ public sealed class BudgetEvaluator
                     NotificationSourceType.Budget,
                     budget.Id,
                     NotificationChannel.InApp | NotificationChannel.LocalDevice | NotificationChannel.Email,
-                    Title: $"Budget alert: {budget.Project.Name} at {pct}%",
+                    Title: $"Budget alert: {budget.Project.Name} crossed {threshold}% (now {pct}%)",
                     Message: $"{budget.Project.Name} reached {pct}% of its {budget.Period} budget ({spend:0.##}/{budget.Amount:0.##} {budget.Currency}).",
                     EmailTo: null, // resolved to the account owner / admin in server mode
                     EmailTemplateKey: Email.Templates.EmailTemplateRenderer.BudgetBreach,
@@ -72,17 +72,51 @@ public sealed class BudgetEvaluator
     private static async Task<decimal> CurrentSpendAsync(
         AppDbContext db, int projectId, int? serviceId, DateOnly from, DateOnly to, CancellationToken ct)
     {
-        var costs = db.CostRecords.Where(c => c.Date >= from && c.Date <= to);
-        costs = serviceId is not null
-            ? costs.Where(c => c.ServiceId == serviceId)
-            : costs.Where(c => c.Service.ProjectId == projectId);
+        var services = await db.Services
+            .Where(s => serviceId != null ? s.Id == serviceId : s.ProjectId == projectId)
+            .Select(s => new
+            {
+                s.Id,
+                s.EstimatedCost,
+                s.Source,
+                s.CloudAccountId
+            })
+            .ToListAsync(ct);
+        if (services.Count == 0)
+            return 0m;
 
-        var synced = await costs.SumAsync(c => (decimal?)c.Amount, ct) ?? 0m;
-        if (synced > 0) return synced;
+        var ids = services.Select(s => s.Id).ToArray();
+        var actualByService = await db.CostRecords
+            .Where(c => ids.Contains(c.ServiceId) && c.Date >= from && c.Date <= to)
+            .GroupBy(c => c.ServiceId)
+            .Select(g => new { ServiceId = g.Key, Amount = g.Sum(c => c.Amount) })
+            .ToDictionaryAsync(x => x.ServiceId, x => x.Amount, ct);
 
-        // Fall back to manual estimates (monthly-normalised) when no synced data exists yet.
-        var services = db.Services.Where(s => serviceId != null ? s.Id == serviceId : s.ProjectId == projectId);
-        return await services.SumAsync(s => (decimal?)s.EstimatedCost, ct) ?? 0m;
+        var accountIds = services
+            .Where(s => s.CloudAccountId is not null)
+            .Select(s => s.CloudAccountId!.Value)
+            .Distinct()
+            .ToArray();
+        var syncedAccountIds = accountIds.Length == 0
+            ? new HashSet<int>()
+            : (await db.CloudAccounts
+                .Where(a => accountIds.Contains(a.Id) && a.LastSyncedUtc != null)
+                .Select(a => a.Id)
+                .ToListAsync(ct))
+                .ToHashSet();
+
+        return services.Sum(service =>
+        {
+            if (actualByService.TryGetValue(service.Id, out var actual))
+                return actual;
+
+            if (service.Source == ServiceSource.Connected
+                && service.CloudAccountId is { } accountId
+                && syncedAccountIds.Contains(accountId))
+                return 0m;
+
+            return service.EstimatedCost;
+        });
     }
 
     private static (DateOnly From, DateOnly To, string PeriodKey) CurrentPeriod()

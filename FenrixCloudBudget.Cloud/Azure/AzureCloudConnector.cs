@@ -1,3 +1,9 @@
+using System.Globalization;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using Azure.Core;
 using Azure.Identity;
 using Azure.ResourceManager;
 using Azure.ResourceManager.ResourceGraph;
@@ -18,7 +24,12 @@ namespace FenrixCloudBudget.Cloud.Azure;
 /// </summary>
 public sealed class AzureCloudConnector : ICloudConnector
 {
+    private const string ManagementScope = "https://management.azure.com/.default";
+    private const string CostApiVersion = "2025-03-01";
+    private const int MaxRetryAttempts = 4;
+
     private readonly ISecretStore _secrets;
+    private readonly IHttpClientFactory _httpClients;
     private readonly ILogger<AzureCloudConnector> _log;
     private ArmClient? _arm;
     private ClientSecretCredential? _credential;
@@ -32,9 +43,13 @@ public sealed class AzureCloudConnector : ICloudConnector
         new CloudFieldSpec("clientSecret", "Client secret", IsSecret: true)
     };
 
-    public AzureCloudConnector(ISecretStore secrets, ILogger<AzureCloudConnector> log)
+    public AzureCloudConnector(
+        ISecretStore secrets,
+        IHttpClientFactory httpClients,
+        ILogger<AzureCloudConnector> log)
     {
         _secrets = secrets;
+        _httpClients = httpClients;
         _log = log;
     }
 
@@ -103,20 +118,251 @@ public sealed class AzureCloudConnector : ICloudConnector
         return results;
     }
 
-    public Task<IReadOnlyList<CostDatum>> GetCostsAsync(
+    public async Task<IReadOnlyList<CostDatum>> GetCostsAsync(
         string scopeId, DateOnly from, DateOnly to, CostGroupBy groupBy, CancellationToken ct = default)
     {
         EnsureAuth();
-        // TODO(Phase 4): POST to
-        //   /subscriptions/{scopeId}/providers/Microsoft.CostManagement/query?api-version=2025-03-01
-        // body groups by ResourceGroup/ServiceName, granularity Daily. Use _credential for the
-        // bearer token, honor rate limits (429 -> exponential back-off), and cache results.
-        IReadOnlyList<CostDatum> empty = Array.Empty<CostDatum>();
-        return Task.FromResult(empty);
+        if (to < from)
+            throw new ArgumentOutOfRangeException(nameof(to), "The cost query end date must be on or after the start date.");
+
+        var token = await _credential!.GetTokenAsync(
+            new TokenRequestContext(new[] { ManagementScope }), ct);
+
+        var groupingNames = groupBy switch
+        {
+            CostGroupBy.ResourceGroup => new[] { "ResourceGroup", "ResourceId" },
+            CostGroupBy.Day => new[] { "ResourceId" },
+            _ => new[] { "ServiceName", "ResourceId" }
+        };
+
+        var body = JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            type = "ActualCost",
+            timeframe = "Custom",
+            timePeriod = new
+            {
+                from = $"{from:yyyy-MM-dd}T00:00:00Z",
+                // Use an exclusive upper bound so every connector treats the public "to" value as inclusive.
+                to = $"{to.AddDays(1):yyyy-MM-dd}T00:00:00Z"
+            },
+            dataset = new
+            {
+                granularity = "Daily",
+                aggregation = new Dictionary<string, object>
+                {
+                    ["totalCost"] = new { name = "PreTaxCost", function = "Sum" }
+                },
+                grouping = groupingNames.Select(name => new { type = "Dimension", name }).ToArray()
+            }
+        });
+
+        var scope = NormalizeManagementScope(scopeId);
+        var next = new Uri(
+            $"https://management.azure.com{scope}/providers/Microsoft.CostManagement/query?api-version={CostApiVersion}");
+        var data = new List<CostDatum>();
+
+        while (next is not null)
+        {
+            using var response = await SendWithRetryAsync(next, body, token.Token, ct);
+            if (response.StatusCode == HttpStatusCode.NoContent)
+                break;
+
+            var json = await response.Content.ReadAsStringAsync(ct);
+            var page = ParseCostPage(json, groupingNames[0]);
+            data.AddRange(page.Data);
+            next = ValidateNextLink(page.NextLink);
+        }
+
+        return data;
     }
 
     private void EnsureAuth()
     {
-        if (_arm is null) throw new InvalidOperationException("Call AuthenticateAsync before using the Azure connector.");
+        if (_arm is null || _credential is null)
+            throw new InvalidOperationException("Call AuthenticateAsync before using the Azure connector.");
     }
+
+    private async Task<HttpResponseMessage> SendWithRetryAsync(
+        Uri endpoint, byte[] body, string bearerToken, CancellationToken ct)
+    {
+        var client = _httpClients.CreateClient(nameof(AzureCloudConnector));
+
+        for (var attempt = 0; ; attempt++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+            request.Content = new ByteArrayContent(body);
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+            var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            if (response.StatusCode is not HttpStatusCode.TooManyRequests and not HttpStatusCode.ServiceUnavailable)
+            {
+                if (response.IsSuccessStatusCode)
+                    return response;
+
+                var error = await response.Content.ReadAsStringAsync(ct);
+                response.Dispose();
+                throw new HttpRequestException(
+                    $"Azure Cost Management query failed with HTTP {(int)response.StatusCode}: {error}",
+                    null,
+                    response.StatusCode);
+            }
+
+            if (attempt >= MaxRetryAttempts)
+            {
+                var statusCode = response.StatusCode;
+                var error = await response.Content.ReadAsStringAsync(ct);
+                response.Dispose();
+                throw new HttpRequestException(
+                    $"Azure Cost Management query exhausted retries with HTTP {(int)statusCode}: {error}",
+                    null,
+                    statusCode);
+            }
+
+            var delay = RetryDelay(response, attempt);
+            _log.LogWarning(
+                "Azure Cost Management throttled/unavailable ({Status}); retrying in {Delay} (attempt {Attempt}/{MaxAttempts})",
+                (int)response.StatusCode,
+                delay,
+                attempt + 1,
+                MaxRetryAttempts);
+            response.Dispose();
+            await Task.Delay(delay, ct);
+        }
+    }
+
+    private static TimeSpan RetryDelay(HttpResponseMessage response, int attempt)
+    {
+        if (TryHeaderSeconds(response, "x-ms-ratelimit-microsoft.consumption-retry-after", out var seconds))
+            return TimeSpan.FromSeconds(Math.Clamp(seconds, 1, 300));
+
+        if (response.Headers.RetryAfter?.Delta is { } delta)
+            return TimeSpan.FromSeconds(Math.Clamp(delta.TotalSeconds, 1, 300));
+
+        if (response.Headers.RetryAfter?.Date is { } date)
+            return TimeSpan.FromSeconds(Math.Clamp((date - DateTimeOffset.UtcNow).TotalSeconds, 1, 300));
+
+        return TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, attempt + 1)));
+    }
+
+    private static bool TryHeaderSeconds(HttpResponseMessage response, string name, out double seconds)
+    {
+        seconds = 0;
+        return response.Headers.TryGetValues(name, out var values)
+               && double.TryParse(values.FirstOrDefault(), NumberStyles.Float, CultureInfo.InvariantCulture, out seconds);
+    }
+
+    private static string NormalizeManagementScope(string scopeId)
+    {
+        var scope = scopeId.Trim();
+        if (scope.StartsWith('/'))
+            return scope.TrimEnd('/');
+
+        if (scope.StartsWith("subscriptions/", StringComparison.OrdinalIgnoreCase)
+            || scope.StartsWith("providers/", StringComparison.OrdinalIgnoreCase))
+            return "/" + scope.TrimEnd('/');
+
+        return $"/subscriptions/{Uri.EscapeDataString(scope)}";
+    }
+
+    private static Uri? ValidateNextLink(string? nextLink)
+    {
+        if (string.IsNullOrWhiteSpace(nextLink))
+            return null;
+
+        if (!Uri.TryCreate(nextLink, UriKind.Absolute, out var uri)
+            || uri.Scheme != Uri.UriSchemeHttps
+            || !uri.Host.Equals("management.azure.com", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Azure Cost Management returned an invalid pagination URL.");
+
+        return uri;
+    }
+
+    private static CostPage ParseCostPage(string json, string primaryGroupName)
+    {
+        using var document = JsonDocument.Parse(json);
+        if (!document.RootElement.TryGetProperty("properties", out var properties))
+            return new CostPage(Array.Empty<CostDatum>(), null);
+
+        var columns = properties.TryGetProperty("columns", out var columnElement)
+            ? columnElement.EnumerateArray()
+                .Select((column, index) => new
+                {
+                    Name = column.TryGetProperty("name", out var name) ? name.GetString() ?? string.Empty : string.Empty,
+                    Index = index
+                })
+                .ToDictionary(x => x.Name, x => x.Index, StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        var amountIndex = FirstColumn(columns, "totalCost", "PreTaxCost", "Cost", "CostInBillingCurrency", "CostUSD");
+        var dateIndex = FirstColumn(columns, "UsageDate", "Date");
+        var currencyIndex = FirstColumn(columns, "Currency", "BillingCurrencyCode");
+        var serviceIndex = FirstColumn(columns, primaryGroupName, "ServiceName", "ResourceGroup");
+        var resourceIndex = FirstColumn(columns, "ResourceId", "ResourceID");
+
+        var results = new List<CostDatum>();
+        if (amountIndex >= 0 && dateIndex >= 0 && properties.TryGetProperty("rows", out var rows))
+        {
+            foreach (var row in rows.EnumerateArray())
+            {
+                var cells = row.EnumerateArray().ToArray();
+                if (!TryDecimal(cells, amountIndex, out var amount)
+                    || !TryDate(cells, dateIndex, out var date))
+                    continue;
+
+                results.Add(new CostDatum(
+                    date,
+                    amount,
+                    CellString(cells, currencyIndex) ?? "USD",
+                    CellString(cells, serviceIndex),
+                    CellString(cells, resourceIndex)));
+            }
+        }
+
+        var nextLink = properties.TryGetProperty("nextLink", out var nextElement)
+            ? nextElement.GetString()
+            : null;
+        return new CostPage(results, nextLink);
+    }
+
+    private static int FirstColumn(IReadOnlyDictionary<string, int> columns, params string[] names)
+    {
+        foreach (var name in names)
+            if (columns.TryGetValue(name, out var index))
+                return index;
+        return -1;
+    }
+
+    private static string? CellString(JsonElement[] cells, int index)
+    {
+        if (index < 0 || index >= cells.Length || cells[index].ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return null;
+        return cells[index].ValueKind == JsonValueKind.String
+            ? cells[index].GetString()
+            : cells[index].ToString();
+    }
+
+    private static bool TryDecimal(JsonElement[] cells, int index, out decimal value)
+    {
+        value = 0;
+        if (index < 0 || index >= cells.Length)
+            return false;
+
+        return cells[index].ValueKind == JsonValueKind.Number
+            ? decimal.TryParse(cells[index].GetRawText(), NumberStyles.Float, CultureInfo.InvariantCulture, out value)
+            : decimal.TryParse(CellString(cells, index), NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+    }
+
+    private static bool TryDate(JsonElement[] cells, int index, out DateOnly date)
+    {
+        date = default;
+        var raw = CellString(cells, index);
+        if (string.IsNullOrWhiteSpace(raw))
+            return false;
+
+        return DateOnly.TryParseExact(raw, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date)
+               || DateOnly.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
+    }
+
+    private sealed record CostPage(IReadOnlyList<CostDatum> Data, string? NextLink);
 }

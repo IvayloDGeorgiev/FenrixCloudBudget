@@ -100,6 +100,22 @@ public sealed class CloudConnectionService
         if (!auth.Success)
             throw new InvalidOperationException($"Re-authentication failed: {auth.Error}");
 
+        // Connectors validate by using the supplied secret and return a newly stored handle.
+        // During re-authentication the account already owns the canonical handle, so discard
+        // the temporary copy to avoid adding an encrypted SecretEntry on every background sync.
+        if (auth.CredentialReference is not null
+            && !string.Equals(auth.CredentialReference, account.CredentialReference, StringComparison.Ordinal))
+        {
+            try
+            {
+                await _secrets.RemoveAsync(auth.CredentialReference, ct);
+            }
+            catch (Exception ex)
+            {
+                _log.LogWarning(ex, "Could not remove temporary credential created while re-authenticating account {AccountId}", account.Id);
+            }
+        }
+
         return connector;
     }
 

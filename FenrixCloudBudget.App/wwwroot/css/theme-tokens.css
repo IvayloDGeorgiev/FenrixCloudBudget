@@ -1,90 +1,184 @@
 /*
-  Design tokens. Each theme is a set of CSS variables selected by [data-theme].
-  Switching themes = swapping the attribute on <html>; no rebuild, easy to extend.
-  Add a new theme by copying a block and changing the values + registering it in ThemeService.
+  Fenrix visual personalities.
+  Themes change far more than accent colour: geometry, opacity, shadows, navigation,
+  background atmosphere and surface treatment all come from these tokens.
 */
 
 :root {
-    --fx-radius: 16px;
-    --fx-radius-sm: 10px;
-    --fx-gap: 16px;
-    --fx-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
-    --fx-shadow-sm: 0 2px 8px rgba(16, 24, 40, 0.08);
-    --fx-font: "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
+    color-scheme: light;
+    --fx-font: "Segoe UI Variable", "Segoe UI", Inter, system-ui, sans-serif;
+    --fx-display-font: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif;
+    --fx-gap: 18px;
+    --fx-radius: 22px;
+    --fx-radius-lg: 30px;
+    --fx-radius-sm: 13px;
+    --fx-nav-width: 260px;
+    --fx-content-max: 1680px;
+    --fx-motion: cubic-bezier(.2, .8, .2, 1);
 }
 
-/* Aurora — light (default) */
-[data-theme="aurora"] {
-    --fx-bg: #f6f7fb;
-    --fx-surface: #ffffff;
-    --fx-surface-2: #f0f2f8;
-    --fx-text: #111827;
-    --fx-text-muted: #6b7280;
-    --fx-border: #e5e7eb;
-    --fx-primary: #6c5ce7;
+[data-theme="daybreak"] {
+    color-scheme: light;
+    --fx-bg: #f4f5fb;
+    --fx-bg-elevated: #f9f9fd;
+    --fx-surface: rgba(255, 255, 255, .82);
+    --fx-surface-solid: #ffffff;
+    --fx-surface-2: rgba(238, 240, 249, .88);
+    --fx-surface-hover: rgba(255, 255, 255, .96);
+    --fx-text: #171a2b;
+    --fx-text-soft: #3e455f;
+    --fx-text-muted: #707790;
+    --fx-border: rgba(61, 67, 99, .12);
+    --fx-border-strong: rgba(75, 75, 125, .22);
+    --fx-primary: #6d5dfb;
+    --fx-primary-rgb: 109, 93, 251;
     --fx-primary-contrast: #ffffff;
-    --fx-accent: #00b894;
+    --fx-secondary: #00b8d9;
+    --fx-secondary-rgb: 0, 184, 217;
+    --fx-accent: #ffb547;
+    --fx-nav-bg: rgba(17, 21, 42, .94);
+    --fx-nav-text: #f5f6ff;
+    --fx-nav-muted: #9ea6c5;
+    --fx-nav-border: rgba(255, 255, 255, .08);
+    --fx-shadow: 0 28px 80px rgba(41, 43, 79, .14), 0 4px 16px rgba(41, 43, 79, .05);
+    --fx-shadow-sm: 0 12px 32px rgba(49, 51, 91, .08), 0 2px 8px rgba(49, 51, 91, .04);
+    --fx-glow: 0 0 0 1px rgba(255, 255, 255, .7) inset, 0 16px 50px rgba(109, 93, 251, .09);
+    --fx-backdrop: blur(22px) saturate(145%);
+    --fx-hero-gradient: linear-gradient(125deg, #171a35 0%, #302a67 52%, #146777 100%);
+    --fx-gradient: linear-gradient(135deg, #7868ff 0%, #5d6df9 42%, #00b8d9 100%);
+    --fx-orb-1: rgba(115, 95, 255, .19);
+    --fx-orb-2: rgba(0, 190, 210, .16);
+    --fx-grid: rgba(66, 73, 116, .055);
     --fx-aws: #ff9900;
-    --fx-azure: #0078d4;
+    --fx-azure: #1689e5;
     --fx-gcp: #ea4335;
-    --fx-danger: #ef4444;
-    --fx-warn: #f59e0b;
-    --fx-ok: #10b981;
+    --fx-danger: #e5566c;
+    --fx-warn: #dd9419;
+    --fx-ok: #0baa75;
 }
 
-/* Midnight — dark */
-[data-theme="midnight"] {
-    --fx-bg: #0b1020;
-    --fx-surface: #141a2e;
-    --fx-surface-2: #1c2440;
-    --fx-text: #e6e9f2;
-    --fx-text-muted: #9aa3b8;
-    --fx-border: #28304d;
-    --fx-primary: #8b7bff;
-    --fx-primary-contrast: #0b1020;
-    --fx-accent: #2dd4bf;
-    --fx-aws: #ffb454;
-    --fx-azure: #4aa3ff;
-    --fx-gcp: #ff6b5e;
-    --fx-danger: #f87171;
+[data-theme="nebula"] {
+    color-scheme: dark;
+    --fx-bg: #080b16;
+    --fx-bg-elevated: #0d1222;
+    --fx-surface: rgba(18, 24, 44, .68);
+    --fx-surface-solid: #11172a;
+    --fx-surface-2: rgba(30, 38, 65, .74);
+    --fx-surface-hover: rgba(31, 39, 68, .88);
+    --fx-text: #f4f6ff;
+    --fx-text-soft: #d6daec;
+    --fx-text-muted: #98a3c1;
+    --fx-border: rgba(156, 169, 211, .15);
+    --fx-border-strong: rgba(174, 158, 255, .30);
+    --fx-primary: #8b7cff;
+    --fx-primary-rgb: 139, 124, 255;
+    --fx-primary-contrast: #0a0d19;
+    --fx-secondary: #33d6c5;
+    --fx-secondary-rgb: 51, 214, 197;
+    --fx-accent: #ff7a9e;
+    --fx-nav-bg: rgba(8, 11, 22, .78);
+    --fx-nav-text: #f4f6ff;
+    --fx-nav-muted: #8d99ba;
+    --fx-nav-border: rgba(165, 174, 214, .12);
+    --fx-shadow: 0 30px 90px rgba(0, 0, 0, .42), 0 4px 20px rgba(0, 0, 0, .25);
+    --fx-shadow-sm: 0 15px 38px rgba(0, 0, 0, .28);
+    --fx-glow: 0 0 0 1px rgba(175, 161, 255, .10) inset, 0 18px 60px rgba(108, 82, 255, .12);
+    --fx-backdrop: blur(24px) saturate(145%);
+    --fx-hero-gradient: linear-gradient(125deg, rgba(67, 45, 132, .92), rgba(17, 49, 87, .92) 58%, rgba(9, 76, 72, .90));
+    --fx-gradient: linear-gradient(135deg, #9a8cff 0%, #7668ff 43%, #33d6c5 100%);
+    --fx-orb-1: rgba(113, 78, 255, .30);
+    --fx-orb-2: rgba(35, 218, 200, .20);
+    --fx-grid: rgba(143, 154, 207, .05);
+    --fx-aws: #ffad33;
+    --fx-azure: #54aaff;
+    --fx-gcp: #ff7568;
+    --fx-danger: #ff6b81;
+    --fx-warn: #ffbd5a;
+    --fx-ok: #3ddc97;
+}
+
+[data-theme="graphite"] {
+    color-scheme: dark;
+    --fx-bg: #0d0f12;
+    --fx-bg-elevated: #111419;
+    --fx-surface: #15181d;
+    --fx-surface-solid: #15181d;
+    --fx-surface-2: #1b1f25;
+    --fx-surface-hover: #20252c;
+    --fx-text: #f2f4f7;
+    --fx-text-soft: #d0d5dc;
+    --fx-text-muted: #8e96a2;
+    --fx-border: #292e36;
+    --fx-border-strong: #3b4654;
+    --fx-primary: #68a8ff;
+    --fx-primary-rgb: 104, 168, 255;
+    --fx-primary-contrast: #07101c;
+    --fx-secondary: #70d7a5;
+    --fx-secondary-rgb: 112, 215, 165;
+    --fx-accent: #fbbf24;
+    --fx-nav-bg: #101216;
+    --fx-nav-text: #f0f2f5;
+    --fx-nav-muted: #868e9a;
+    --fx-nav-border: #252a31;
+    --fx-shadow: 0 20px 50px rgba(0, 0, 0, .32);
+    --fx-shadow-sm: 0 8px 22px rgba(0, 0, 0, .24);
+    --fx-glow: 0 0 0 1px rgba(255, 255, 255, .025) inset;
+    --fx-backdrop: none;
+    --fx-hero-gradient: linear-gradient(125deg, #151b24 0%, #18283a 65%, #17332d 100%);
+    --fx-gradient: linear-gradient(135deg, #68a8ff, #70d7a5);
+    --fx-orb-1: rgba(70, 130, 210, .12);
+    --fx-orb-2: rgba(65, 183, 132, .08);
+    --fx-grid: rgba(255, 255, 255, .035);
+    --fx-radius: 10px;
+    --fx-radius-lg: 14px;
+    --fx-radius-sm: 7px;
+    --fx-aws: #f7a928;
+    --fx-azure: #68a8ff;
+    --fx-gcp: #ef6a62;
+    --fx-danger: #fb7185;
     --fx-warn: #fbbf24;
-    --fx-ok: #34d399;
+    --fx-ok: #70d7a5;
 }
 
-/* Slate — neutral */
-[data-theme="slate"] {
-    --fx-bg: #eef1f4;
-    --fx-surface: #ffffff;
-    --fx-surface-2: #e6eaef;
-    --fx-text: #1f2937;
-    --fx-text-muted: #64748b;
-    --fx-border: #d8dee6;
-    --fx-primary: #334155;
+[data-theme="tide"] {
+    color-scheme: light;
+    --fx-bg: #eef6f7;
+    --fx-bg-elevated: #f5fafb;
+    --fx-surface: rgba(250, 253, 253, .86);
+    --fx-surface-solid: #f9fcfc;
+    --fx-surface-2: rgba(225, 239, 241, .84);
+    --fx-surface-hover: #ffffff;
+    --fx-text: #102f36;
+    --fx-text-soft: #31545b;
+    --fx-text-muted: #648087;
+    --fx-border: rgba(31, 86, 96, .13);
+    --fx-border-strong: rgba(8, 126, 164, .24);
+    --fx-primary: #087ea4;
+    --fx-primary-rgb: 8, 126, 164;
     --fx-primary-contrast: #ffffff;
-    --fx-accent: #0ea5e9;
-    --fx-aws: #ff9900;
-    --fx-azure: #0078d4;
-    --fx-gcp: #ea4335;
-    --fx-danger: #ef4444;
-    --fx-warn: #f59e0b;
-    --fx-ok: #10b981;
-}
-
-/* Mint — accent */
-[data-theme="mint"] {
-    --fx-bg: #f1faf6;
-    --fx-surface: #ffffff;
-    --fx-surface-2: #e3f3ec;
-    --fx-text: #0f3d2e;
-    --fx-text-muted: #5b7d70;
-    --fx-border: #cfe8dd;
-    --fx-primary: #0ca678;
-    --fx-primary-contrast: #ffffff;
-    --fx-accent: #14b8a6;
-    --fx-aws: #ff9900;
-    --fx-azure: #0078d4;
-    --fx-gcp: #ea4335;
-    --fx-danger: #ef4444;
-    --fx-warn: #f59e0b;
-    --fx-ok: #10b981;
+    --fx-secondary: #14b8a6;
+    --fx-secondary-rgb: 20, 184, 166;
+    --fx-accent: #f9735b;
+    --fx-nav-bg: rgba(18, 52, 59, .96);
+    --fx-nav-text: #f2ffff;
+    --fx-nav-muted: #a8c6ca;
+    --fx-nav-border: rgba(213, 244, 247, .10);
+    --fx-shadow: 0 26px 70px rgba(25, 75, 84, .13);
+    --fx-shadow-sm: 0 10px 28px rgba(29, 83, 93, .08);
+    --fx-glow: 0 0 0 1px rgba(255, 255, 255, .72) inset;
+    --fx-backdrop: blur(20px) saturate(125%);
+    --fx-hero-gradient: linear-gradient(125deg, #12343b 0%, #075d70 58%, #148579 100%);
+    --fx-gradient: linear-gradient(135deg, #087ea4, #14b8a6);
+    --fx-orb-1: rgba(8, 126, 164, .16);
+    --fx-orb-2: rgba(20, 184, 166, .13);
+    --fx-grid: rgba(21, 91, 103, .05);
+    --fx-radius: 26px;
+    --fx-radius-lg: 36px;
+    --fx-radius-sm: 16px;
+    --fx-aws: #e89118;
+    --fx-azure: #087ea4;
+    --fx-gcp: #e45e50;
+    --fx-danger: #d95762;
+    --fx-warn: #d99018;
+    --fx-ok: #159b72;
 }

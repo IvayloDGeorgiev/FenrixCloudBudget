@@ -56,6 +56,9 @@ public class CloudConnectionServiceTests
 
         Assert.Single(resources);
         Assert.Equal("vm-1", resources[0].Name);
+
+        await using var db = test.NewContext();
+        Assert.Single(await db.SecretEntries.ToListAsync()); // re-auth must not leak a duplicate encrypted secret
     }
 
     private static string TempKey() => Path.Combine(Path.GetTempPath(), $"fx-{Guid.NewGuid():N}.key");

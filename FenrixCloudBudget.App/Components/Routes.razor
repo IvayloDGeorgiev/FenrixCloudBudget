@@ -1,8 +1,7 @@
-@*
-   Root component mounted by the BlazorWebView (see MainPage.xaml, selector "#app").
-   Wires MudBlazor providers + the router.
-*@
-<MudThemeProvider />
+@implements IDisposable
+@inject ThemeService Theme
+
+<MudThemeProvider Theme="@Theme.MudTheme" IsDarkMode="@Theme.Current.Dark" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -14,11 +13,18 @@
     </Found>
     <NotFound>
         <LayoutView Layout="@typeof(MainLayout)">
-            <div class="fx-card">
+            <div class="fx-card fx-empty-state">
+                <div class="fx-empty-orbit"><MudIcon Icon="@Icons.Material.Filled.ExploreOff" /></div>
                 <h1 class="fx-page-title">Page not found</h1>
-                <p class="fx-page-sub">The page you were looking for doesn't exist.</p>
-                <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary">Back to home</MudButton>
+                <p class="fx-page-sub">That route drifted outside the Fenrix workspace.</p>
+                <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary">Return home</MudButton>
             </div>
         </LayoutView>
     </NotFound>
 </Router>
+
+@code {
+    protected override void OnInitialized() => Theme.Changed += OnThemeChanged;
+    private void OnThemeChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Theme.Changed -= OnThemeChanged;
+}

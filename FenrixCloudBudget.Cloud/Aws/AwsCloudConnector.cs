@@ -112,7 +112,8 @@ public sealed class AwsCloudConnector : ICloudConnector
 
         var request = new GetCostAndUsageRequest
         {
-            TimePeriod = new DateInterval { Start = from.ToString("yyyy-MM-dd"), End = to.ToString("yyyy-MM-dd") },
+            // Cost Explorer's end date is exclusive; ICloudConnector exposes an inclusive window.
+            TimePeriod = new DateInterval { Start = from.ToString("yyyy-MM-dd"), End = to.AddDays(1).ToString("yyyy-MM-dd") },
             Granularity = Granularity.DAILY,
             Metrics = new List<string> { "UnblendedCost" },
             GroupBy = new List<GroupDefinition>
@@ -122,20 +123,27 @@ public sealed class AwsCloudConnector : ICloudConnector
         };
 
         var data = new List<CostDatum>();
-        var resp = await client.GetCostAndUsageAsync(request, ct);
-        foreach (var period in resp.ResultsByTime)
+        string? token = null;
+        do
         {
-            var date = DateOnly.Parse(period.TimePeriod.Start);
-            foreach (var group in period.Groups)
+            request.NextPageToken = token;
+            var resp = await client.GetCostAndUsageAsync(request, ct);
+            foreach (var period in resp.ResultsByTime)
             {
-                var amount = group.Metrics["UnblendedCost"];
-                data.Add(new CostDatum(
-                    date,
-                    decimal.Parse(amount.Amount, System.Globalization.CultureInfo.InvariantCulture),
-                    amount.Unit,
-                    ServiceName: group.Keys.FirstOrDefault()));
+                var date = DateOnly.Parse(period.TimePeriod.Start);
+                foreach (var group in period.Groups)
+                {
+                    var amount = group.Metrics["UnblendedCost"];
+                    data.Add(new CostDatum(
+                        date,
+                        decimal.Parse(amount.Amount, System.Globalization.CultureInfo.InvariantCulture),
+                        amount.Unit,
+                        ServiceName: group.Keys.FirstOrDefault()));
+                }
             }
-        }
+            token = string.IsNullOrWhiteSpace(resp.NextPageToken) ? null : resp.NextPageToken;
+        } while (token is not null && !ct.IsCancellationRequested);
+
         return data;
     }
 

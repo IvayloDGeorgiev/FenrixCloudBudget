@@ -1,4 +1,5 @@
 using FenrixCloudBudget.Core.Interfaces;
+using FenrixCloudBudget.Services.Cloud;
 using FenrixCloudBudget.Services.Email;
 using FenrixCloudBudget.Services.Email.Adapters;
 using FenrixCloudBudget.Services.Email.Templates;
@@ -44,6 +45,9 @@ public static class ServicesServiceCollectionExtensions
         services.AddScoped<INotificationService, NotificationService>();
 
         // Sync / evaluation.
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddScoped<CloudConnectionService>();
+        services.AddScoped<CostSyncService>();
         services.AddScoped<BudgetEvaluator>();
         services.AddScoped<ReminderEvaluator>();
 

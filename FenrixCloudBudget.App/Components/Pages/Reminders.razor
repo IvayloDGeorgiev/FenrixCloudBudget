@@ -2,13 +2,16 @@
 @inject IDbContextFactory<AppDbContext> DbFactory
 @inject ISnackbar Snackbar
 
-<div style="display:flex;align-items:center;gap:12px">
+<div class="fx-reminder-header">
     <div>
+        <div class="fx-eyebrow">Attention queue</div>
         <h1 class="fx-page-title">Reminders</h1>
         <p class="fx-page-sub">Client secret & certificate expiries, plus custom reminders — never miss a rotation.</p>
     </div>
     <MudSpacer />
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => Edit(new Reminder { DueDate = DateTimeOffset.Now.AddDays(30) }))">
+    <MudButton Class="fx-no-wrap" Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="@(() => Edit(new Reminder { DueDate = DateTimeOffset.Now.AddDays(30) }))">
         New reminder
     </MudButton>
 </div>
@@ -36,11 +39,48 @@
                                 @(days < 0 ? $"{-days}d overdue" : $"{days}d")
                             </MudChip>
                         </td>
-                        <td>@r.Status</td>
-                        <td style="text-align:right">
-                            <MudIconButton Icon="@Icons.Material.Filled.Snooze" Size="Size.Small" aria-label="Snooze 7 days" OnClick="@(() => Snooze(r))" />
-                            <MudIconButton Icon="@Icons.Material.Filled.Done" Size="Size.Small" aria-label="Mark done" OnClick="@(() => Done(r))" />
-                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="@(() => Edit(r))" />
+                        <td>
+                            <MudChip T="string" Size="Size.Small" Color="@StatusColor(r.Status)">
+                                @StatusLabel(r.Status)
+                            </MudChip>
+                        </td>
+                        <td>
+                            <div class="fx-reminder-actions">
+                                @if (r.Status == ReminderStatus.Active)
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.Snooze"
+                                                   Size="Size.Small"
+                                                   aria-label="Snooze for 7 days"
+                                                   title="Snooze for 7 days"
+                                                   OnClick="@(() => Snooze(r))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.TaskAlt"
+                                                   Size="Size.Small"
+                                                   Color="Color.Success"
+                                                   aria-label="Mark as complete"
+                                                   title="Mark as complete"
+                                                   OnClick="@(() => MarkDone(r))" />
+                                }
+                                else
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.PlayCircle"
+                                                   Size="Size.Small"
+                                                   Color="Color.Primary"
+                                                   aria-label="Restore to active"
+                                                   title="Restore to active"
+                                                   OnClick="@(() => RestoreActive(r))" />
+                                }
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                               Size="Size.Small"
+                                               aria-label="Edit reminder"
+                                               title="Edit reminder"
+                                               OnClick="@(() => Edit(r))" />
+                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                               Size="Size.Small"
+                                               Color="Color.Error"
+                                               aria-label="Delete reminder"
+                                               title="Delete reminder"
+                                               OnClick="@(() => RequestDelete(r))" />
+                            </div>
                         </td>
                     </tr>
                 }
@@ -83,11 +123,40 @@
     </MudDialog>
 }
 
+@if (_deleting is not null)
+{
+    <MudDialog @bind-Visible="_deleteDialogOpen"
+               Options="new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true }">
+        <TitleContent>Delete reminder?</TitleContent>
+        <DialogContent>
+            <div class="fx-delete-confirm">
+                <div class="fx-delete-confirm-icon">
+                    <MudIcon Icon="@Icons.Material.Filled.DeleteForever" />
+                </div>
+                <div>
+                    <strong>@_deleting.Title</strong>
+                    <p>This permanently removes the reminder. This action cannot be undone.</p>
+                </div>
+            </div>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="CancelDelete">Keep reminder</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Delete"
+                       OnClick="ConfirmDeleteAsync">
+                Delete
+            </MudButton>
+        </DialogActions>
+    </MudDialog>
+}
+
 @code {
     private List<Reminder> _reminders = new();
     private List<CloudAccount> _accounts = new();
     private Reminder? _editing;
+    private Reminder? _deleting;
     private bool _dialogOpen;
+    private bool _deleteDialogOpen;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -103,6 +172,24 @@
         ReminderType.ClientSecret => "Client secret",
         ReminderType.Certificate => "Certificate",
         _ => "Custom"
+    };
+
+    private static string StatusLabel(ReminderStatus status) => status switch
+    {
+        ReminderStatus.Active => "Active",
+        ReminderStatus.Snoozed => "Snoozed",
+        ReminderStatus.Done => "Completed",
+        ReminderStatus.Dismissed => "Dismissed",
+        _ => status.ToString()
+    };
+
+    private static Color StatusColor(ReminderStatus status) => status switch
+    {
+        ReminderStatus.Active => Color.Success,
+        ReminderStatus.Snoozed => Color.Warning,
+        ReminderStatus.Done => Color.Default,
+        ReminderStatus.Dismissed => Color.Default,
+        _ => Color.Default
     };
 
     private void Edit(Reminder r) { _editing = r; _dialogOpen = true; }
@@ -126,10 +213,57 @@
         await Persist(r, "Snoozed 7 days");
     }
 
-    private async Task Done(Reminder r)
+    private async Task MarkDone(Reminder r)
     {
         r.Status = ReminderStatus.Done;
-        await Persist(r, "Marked done");
+        r.SnoozedUntilUtc = null;
+        await Persist(r, "Reminder completed");
+    }
+
+    private async Task RestoreActive(Reminder r)
+    {
+        r.Status = ReminderStatus.Active;
+        r.SnoozedUntilUtc = null;
+        r.LastFiredUtc = null;
+        await Persist(r, "Reminder restored to active");
+    }
+
+    private void RequestDelete(Reminder reminder)
+    {
+        _deleting = reminder;
+        _deleteDialogOpen = true;
+    }
+
+    private void CancelDelete()
+    {
+        _deleteDialogOpen = false;
+        _deleting = null;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (_deleting is null)
+            return;
+
+        var reminderId = _deleting.Id;
+
+        // Remove the inline dialog from the render tree before doing any database work.
+        // Waiting until the end lets MudDialog's visibility callback retain the open state.
+        _deleteDialogOpen = false;
+        _deleting = null;
+        await InvokeAsync(StateHasChanged);
+        await Task.Yield();
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var reminder = await db.Reminders.FirstOrDefaultAsync(item => item.Id == reminderId);
+        if (reminder is not null)
+        {
+            db.Reminders.Remove(reminder);
+            await db.SaveChangesAsync();
+        }
+
+        await LoadAsync();
+        Snackbar.Add("Reminder deleted", Severity.Success);
     }
 
     private async Task Persist(Reminder r, string msg)

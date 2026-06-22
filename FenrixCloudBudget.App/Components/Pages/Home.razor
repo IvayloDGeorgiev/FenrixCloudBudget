@@ -1,57 +1,121 @@
 @page "/"
-@inject IDbContextFactory<FenrixCloudBudget.Data.AppDbContext> DbFactory
+@inject IDbContextFactory<AppDbContext> DbFactory
 
-<h1 class="fx-page-title">Welcome to FenrixCloudBudget</h1>
-<p class="fx-page-sub">Group. Budget. Stay ahead — across AWS, Azure & GCP.</p>
+<section class="fx-hero">
+    <div>
+        <div class="fx-hero-eyebrow">
+            <span class="fx-live-dot"></span>
+            Your cloud portfolio
+        </div>
+        <h1>Clarity for every cloud, client and commitment.</h1>
+        <p>
+            Fenrix turns scattered services into a focused financial workspace—group resources,
+            watch budget pressure and catch the next important renewal before it catches you.
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:22px">
+            <MudButton Href="/dashboard" Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.AutoGraph">
+                Open command center
+            </MudButton>
+            <MudButton Href="/projects" Variant="Variant.Outlined"
+                       Style="color:white;border-color:rgba(255,255,255,.3)"
+                       StartIcon="@Icons.Material.Filled.Add">
+                Create a project
+            </MudButton>
+        </div>
+    </div>
+    <div class="fx-hero-side" aria-hidden="true">
+        <div class="fx-orbit-visual">
+            <div class="fx-orbit-core"><MudIcon Icon="@Icons.Material.Filled.CloudSync" Size="Size.Large" /></div>
+        </div>
+    </div>
+</section>
+
+<section class="fx-page-header" style="margin-top:30px">
+    <div class="fx-page-heading">
+        <div class="fx-eyebrow">Workspace pulse</div>
+        <h1 class="fx-page-title" style="font-size:clamp(25px,2.5vw,36px)">Everything important, one move away.</h1>
+        <p class="fx-page-sub">Jump into the part of your cloud estate that needs attention.</p>
+    </div>
+</section>
 
 <div class="fx-tiles">
     <a class="fx-tile" href="/dashboard">
-        <div class="fx-tile-icon"><MudIcon Icon="@Icons.Material.Filled.Dashboard" /></div>
-        <div class="fx-tile-title">Dashboard</div>
-        <div class="fx-tile-stat">@_monthlySpend.ToString("C0") <small>this month (est.)</small></div>
+        <div class="fx-tile-icon"><MudIcon Icon="@Icons.Material.Filled.SpaceDashboard" /></div>
+        <div class="fx-tile-title">Spend overview</div>
+        <div class="fx-tile-stat">
+            @_monthlySpend.ToString("C0")
+            <small>estimated monthly footprint</small>
+        </div>
     </a>
+
     <a class="fx-tile" href="/projects">
-        <div class="fx-tile-icon"><MudIcon Icon="@Icons.Material.Filled.Folder" /></div>
+        <div class="fx-tile-icon"><MudIcon Icon="@Icons.Material.Filled.FolderCopy" /></div>
         <div class="fx-tile-title">Projects</div>
-        <div class="fx-tile-stat">@_projectCount <small>active</small></div>
+        <div class="fx-tile-stat">
+            @_projectCount
+            <small>active cross-cloud workspaces</small>
+        </div>
     </a>
+
     <a class="fx-tile" href="/clients">
-        <div class="fx-tile-icon"><MudIcon Icon="@Icons.Material.Filled.People" /></div>
+        <div class="fx-tile-icon"><MudIcon Icon="@Icons.Material.Filled.Handshake" /></div>
         <div class="fx-tile-title">Clients</div>
-        <div class="fx-tile-stat">@_clientCount <small>total</small></div>
+        <div class="fx-tile-stat">
+            @_clientCount
+            <small>portfolio relationships</small>
+        </div>
     </a>
+
     <a class="fx-tile" href="/reminders">
-        <div class="fx-tile-icon"><MudIcon Icon="@Icons.Material.Filled.Alarm" /></div>
-        <div class="fx-tile-title">Reminders</div>
-        <div class="fx-tile-stat">@_remindersDue <small>due soon</small></div>
+        <div class="fx-tile-icon"><MudIcon Icon="@Icons.Material.Filled.NotificationImportant" /></div>
+        <div class="fx-tile-title">Upcoming attention</div>
+        <div class="fx-tile-stat">
+            @_remindersDue
+            <small>reminders due within 14 days</small>
+        </div>
     </a>
+
     <a class="fx-tile" href="/cloud-services">
-        <div class="fx-tile-icon"><MudIcon Icon="@Icons.Material.Filled.Cloud" /></div>
-        <div class="fx-tile-title">Cloud Services</div>
-        <div class="fx-tile-stat">@_accountCount <small>connected</small></div>
+        <div class="fx-tile-icon"><MudIcon Icon="@Icons.Material.Filled.Hub" /></div>
+        <div class="fx-tile-title">Cloud connections</div>
+        <div class="fx-tile-stat">
+            @_accountCount
+            <small>accounts ready for discovery</small>
+        </div>
     </a>
+
     <a class="fx-tile" href="/settings">
-        <div class="fx-tile-icon"><MudIcon Icon="@Icons.Material.Filled.Settings" /></div>
-        <div class="fx-tile-title">Settings</div>
-        <div class="fx-tile-stat" style="font-size:16px">Theme · Data · Email</div>
+        <div class="fx-tile-icon"><MudIcon Icon="@Icons.Material.Filled.Palette" /></div>
+        <div class="fx-tile-title">Make it yours</div>
+        <div class="fx-tile-stat" style="font-size:20px">
+            Appearance
+            <small>themes, data, sync and notifications</small>
+        </div>
     </a>
 </div>
 
 @code {
     private decimal _monthlySpend;
-    private int _projectCount, _clientCount, _remindersDue, _accountCount;
+    private int _projectCount;
+    private int _clientCount;
+    private int _remindersDue;
+    private int _accountCount;
 
     protected override async Task OnInitializedAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        _projectCount = await db.Projects.CountAsync(p => p.Status == ProjectStatus.Active);
+        _projectCount = await db.Projects.CountAsync(project => project.Status == ProjectStatus.Active);
         _clientCount = await db.Clients.CountAsync();
         _accountCount = await db.CloudAccounts.CountAsync();
 
         var soon = DateTimeOffset.UtcNow.AddDays(14);
-        _remindersDue = await db.Reminders.CountAsync(r => r.Status == ReminderStatus.Active && r.DueDate <= soon);
+        var activeDueDates = await db.Reminders
+            .Where(reminder => reminder.Status == ReminderStatus.Active)
+            .Select(reminder => reminder.DueDate)
+            .ToListAsync();
+        _remindersDue = activeDueDates.Count(dueDate => dueDate <= soon);
 
-        // Monthly estimate from manual service costs (synced actuals refine this in Phase 4).
-        _monthlySpend = await db.Services.SumAsync(s => (decimal?)s.EstimatedCost) ?? 0m;
+        _monthlySpend = await db.Services.SumAsync(service => (decimal?)service.EstimatedCost) ?? 0m;
     }
 }

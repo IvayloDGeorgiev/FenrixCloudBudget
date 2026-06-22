@@ -37,11 +37,11 @@ public sealed class AlertSchedulerService : BackgroundService
         try
         {
             using var scope = _scopes.CreateScope();
+            var costSync = scope.ServiceProvider.GetRequiredService<CostSyncService>();
             var budgets = scope.ServiceProvider.GetRequiredService<BudgetEvaluator>();
             var reminders = scope.ServiceProvider.GetRequiredService<ReminderEvaluator>();
 
-            // TODO(Phase 4): await scope.ServiceProvider.GetRequiredService<CostSyncService>().SyncDueAsync(ct);
-
+            await costSync.SyncDueAsync(ct);
             await budgets.EvaluateAllAsync(ct);
             await reminders.EvaluateAllAsync(ct);
         }

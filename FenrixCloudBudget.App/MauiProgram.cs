@@ -44,9 +44,6 @@ public static class MauiProgram
         builder.Services.AddFenrixCloud();
         builder.Services.AddFenrixAlertScheduler(TimeSpan.FromHours(6));
 
-        // Cloud connection orchestration (needs the cloud connector factory from AddFenrixCloud above).
-        builder.Services.AddScoped<FenrixCloudBudget.Services.Cloud.CloudConnectionService>();
-
         // ---- Platform channel implementations (override the no-op/dev defaults) ----
         builder.Services.AddSingleton<ISecureKeyProvider, MauiSecureKeyProvider>();
         builder.Services.AddSingleton<IInAppNotifier, MauiInAppNotifier>();

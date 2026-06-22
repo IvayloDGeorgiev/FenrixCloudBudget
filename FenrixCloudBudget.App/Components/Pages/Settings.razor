@@ -4,96 +4,181 @@
 @inject IEmailSenderFactory EmailFactory
 @inject ISnackbar Snackbar
 
-<h1 class="fx-page-title">Settings</h1>
-<p class="fx-page-sub">Appearance, data backend, and email & notifications.</p>
+<section class="fx-page-header">
+    <div class="fx-page-heading">
+        <div class="fx-eyebrow">Workspace preferences</div>
+        <h1 class="fx-page-title">Settings</h1>
+        <p class="fx-page-sub">Shape the workspace, choose where data lives and configure how Fenrix reaches you.</p>
+    </div>
+</section>
 
-<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
-
-    <MudTabPanel Text="Appearance">
-        <h3>Theme</h3>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
-            @foreach (var t in ThemeService.Available)
-            {
-                <div class="fx-card" style="cursor:pointer;min-width:160px;@(Theme.CurrentThemeId == t.Id ? "outline:2px solid var(--fx-primary)" : "")"
-                     @onclick="@(() => Theme.SetTheme(t.Id))">
-                    <strong>@t.Name</strong>
-                    <div style="font-size:12px;color:var(--fx-text-muted)">@(t.Dark ? "Dark" : "Light")</div>
+<div class="fx-card" style="padding:4px 20px 22px">
+    <MudTabs Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-5">
+        <MudTabPanel Text="Appearance" Icon="@Icons.Material.Filled.Palette">
+            <div class="fx-appearance-intro">
+                <div>
+                    <h3>Choose a visual personality</h3>
+                    <p>
+                        Each personality changes the atmosphere, navigation, geometry, surface depth
+                        and component palette. It is a full design language—not a simple colour swap.
+                    </p>
                 </div>
-            }
-        </div>
-    </MudTabPanel>
-
-    <MudTabPanel Text="Data & Connections">
-        <h3>Storage backend</h3>
-        <MudText Typo="Typo.caption">SQLite (on-device) is the default. Server modes store data centrally.</MudText>
-        @if (_settings is not null)
-        {
-            <MudSelect T="DataProviderMode" @bind-Value="_settings.DataMode" Label="Mode" Class="mt-2" Style="max-width:320px">
-                <MudSelectItem Value="DataProviderMode.Sqlite">SQLite (default, on-device)</MudSelectItem>
-                <MudSelectItem Value="DataProviderMode.SqlServer">SQL Server</MudSelectItem>
-                <MudSelectItem Value="DataProviderMode.CloudSql">Cloud SQL / Azure SQL</MudSelectItem>
-                <MudSelectItem Value="DataProviderMode.Saas">FenrixCloud (SaaS)</MudSelectItem>
-            </MudSelect>
-
-            @if (_settings.DataMode is DataProviderMode.SqlServer or DataProviderMode.CloudSql)
-            {
-                <MudTextField @bind-Value="_connectionString" Label="Connection string" Class="mt-2" />
-                <MudButton Variant="Variant.Outlined" Class="mt-2" OnClick="TestConnection">Test connection</MudButton>
-                <MudText Typo="Typo.caption" Class="mt-1">@_testResult</MudText>
-            }
-
-            <div class="mt-4">
-                <MudNumericField @bind-Value="_settings.SyncIntervalHours" Label="Auto-sync interval (hours)" Style="max-width:260px" />
-                <MudText Typo="Typo.caption">Higher = fewer API calls (AWS Cost Explorer charges per request).</MudText>
+                <div class="fx-motion-badge">
+                    <MudIcon Icon="@Icons.Material.Filled.Animation" Size="Size.Small" />
+                    Motion follows system accessibility settings
+                </div>
             </div>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="SaveSettings">Save</MudButton>
-        }
-    </MudTabPanel>
 
-    <MudTabPanel Text="Email & Notifications">
-        <h3>Email method</h3>
-        <MudText Typo="Typo.caption">Pick one method; only its fields show. Secrets are stored encrypted and masked after save.</MudText>
-        @if (_email is not null)
-        {
-            <MudSelect T="EmailMethod" @bind-Value="_email.Method" Label="Method" Class="mt-2" Style="max-width:360px">
-                <MudSelectItem Value="EmailMethod.InAppAndDeviceOnly">In-app & device only (default)</MudSelectItem>
-                <MudSelectItem Value="EmailMethod.CustomSmtp">Custom SMTP</MudSelectItem>
-                <MudSelectItem Value="EmailMethod.Resend">Resend</MudSelectItem>
-                <MudSelectItem Value="EmailMethod.SendGrid">SendGrid</MudSelectItem>
-                <MudSelectItem Value="EmailMethod.AmazonSes">Amazon SES</MudSelectItem>
-                <MudSelectItem Value="EmailMethod.Postmark">Postmark</MudSelectItem>
-                <MudSelectItem Value="EmailMethod.AzureCommunicationServices">Azure Communication Services</MudSelectItem>
-            </MudSelect>
+            <div class="fx-theme-gallery">
+                @foreach (var theme in ThemeService.Available)
+                {
+                    var selected = Theme.CurrentThemeId == theme.Id;
+                    <button type="button"
+                            class="fx-theme-choice @(selected ? "selected" : "")"
+                            style="@PreviewStyle(theme)"
+                            aria-pressed="@selected"
+                            @onclick="@(() => ChooseThemeAsync(theme.Id))">
+                        @if (selected)
+                        {
+                            <span class="fx-theme-check"><MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" /></span>
+                        }
 
-            var schema = EmailFactory.Resolve(_email.Method).FieldSchema;
-            if (schema.Count == 0)
+                        <span class="fx-theme-preview" aria-hidden="true">
+                            <span class="fx-theme-preview-nav"></span>
+                            <span class="fx-theme-preview-body">
+                                <span class="fx-preview-heading"></span>
+                                <span class="fx-preview-kpis"><span></span><span></span><span></span></span>
+                                <span class="fx-preview-chart"></span>
+                            </span>
+                        </span>
+
+                        <span class="fx-theme-copy">
+                            <span class="fx-theme-name-row">
+                                <strong>@theme.Name</strong>
+                                <span class="fx-theme-mode">@(theme.Dark ? "Dark" : "Light")</span>
+                            </span>
+                            <p>@theme.Description</p>
+                            <span class="fx-theme-personality">@theme.Personality</span>
+                            <span class="fx-theme-swatches" aria-hidden="true">
+                                <span style="background:@theme.Primary"></span>
+                                <span style="background:@theme.Secondary"></span>
+                                <span style="background:@theme.Accent"></span>
+                            </span>
+                        </span>
+                    </button>
+                }
+            </div>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Data & connections" Icon="@Icons.Material.Filled.Storage">
+            <div class="fx-appearance-intro">
+                <div>
+                    <h3>Storage backend</h3>
+                    <p>SQLite stays on-device by default. Server modes place the workspace in a central data store.</p>
+                </div>
+            </div>
+
+            @if (_settings is not null)
             {
-                <MudText Class="mt-2">No configuration needed. Alerts show in-app and as device notifications.</MudText>
-            }
-            else
-            {
-                <div class="mt-2" style="max-width:420px">
-                    @foreach (var f in schema)
+                <div style="max-width:560px">
+                    <MudSelect T="DataProviderMode" @bind-Value="_settings.DataMode" Label="Storage mode" Class="mt-2">
+                        <MudSelectItem Value="DataProviderMode.Sqlite">SQLite — on-device</MudSelectItem>
+                        <MudSelectItem Value="DataProviderMode.SqlServer">SQL Server</MudSelectItem>
+                        <MudSelectItem Value="DataProviderMode.CloudSql">Cloud SQL / Azure SQL</MudSelectItem>
+                        <MudSelectItem Value="DataProviderMode.Saas">FenrixCloud — SaaS</MudSelectItem>
+                    </MudSelect>
+
+                    @if (_settings.DataMode is DataProviderMode.SqlServer or DataProviderMode.CloudSql)
                     {
-                        <MudTextField T="string" Label="@(f.Label + (f.Required ? " *" : ""))"
-                                      InputType="@(f.IsSecret ? InputType.Password : InputType.Text)"
-                                      HelperText="@(f.IsSecret ? "Stored encrypted; shown masked after save." : null)"
-                                      Value="@GetField(f.Key)" ValueChanged="v => SetField(f.Key, v)" />
+                        <MudTextField @bind-Value="_connectionString" Label="Connection string" Class="mt-3" />
+                        <MudButton Variant="Variant.Outlined" Class="mt-2" OnClick="TestConnection">Test connection</MudButton>
+                        <MudText Typo="Typo.caption" Class="mt-1">@_testResult</MudText>
                     }
-                </div>
-                <MudButton Variant="Variant.Outlined" Class="mt-2" OnClick="SendTest">Send test email</MudButton>
-            }
-            <div class="mt-3">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveEmail">Save</MudButton>
-                <MudChip T="string" Class="ml-2"
-                         Color="@(_email.Status == EmailConfigStatus.Verified ? Color.Success : _email.Status == EmailConfigStatus.Failed ? Color.Error : Color.Default)">
-                    @_email.Status
-                </MudChip>
-            </div>
-        }
-    </MudTabPanel>
 
-</MudTabs>
+                    <div class="mt-5">
+                        <MudNumericField @bind-Value="_settings.SyncIntervalHours"
+                                         Label="Automatic sync interval (hours)"
+                                         Style="max-width:300px" />
+                        <MudText Typo="Typo.caption">
+                            A calmer interval reduces provider API traffic. AWS Cost Explorer charges per request.
+                        </MudText>
+                    </div>
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4"
+                               StartIcon="@Icons.Material.Filled.Save"
+                               OnClick="SaveSettings">
+                        Save data settings
+                    </MudButton>
+                </div>
+            }
+        </MudTabPanel>
+
+        <MudTabPanel Text="Notifications" Icon="@Icons.Material.Filled.MarkEmailRead">
+            <div class="fx-appearance-intro">
+                <div>
+                    <h3>Email & notifications</h3>
+                    <p>Choose one delivery method. Sensitive values are encrypted and represented by a masked hint.</p>
+                </div>
+            </div>
+
+            @if (_email is not null)
+            {
+                <div style="max-width:560px">
+                    <MudSelect T="EmailMethod" @bind-Value="_email.Method" Label="Delivery method" Class="mt-2">
+                        <MudSelectItem Value="EmailMethod.InAppAndDeviceOnly">In-app & device only</MudSelectItem>
+                        <MudSelectItem Value="EmailMethod.CustomSmtp">Custom SMTP</MudSelectItem>
+                        <MudSelectItem Value="EmailMethod.Resend">Resend</MudSelectItem>
+                        <MudSelectItem Value="EmailMethod.SendGrid">SendGrid</MudSelectItem>
+                        <MudSelectItem Value="EmailMethod.AmazonSes">Amazon SES</MudSelectItem>
+                        <MudSelectItem Value="EmailMethod.Postmark">Postmark</MudSelectItem>
+                        <MudSelectItem Value="EmailMethod.AzureCommunicationServices">Azure Communication Services</MudSelectItem>
+                    </MudSelect>
+
+                    @{
+                        var schema = EmailFactory.Resolve(_email.Method).FieldSchema;
+                    }
+                    @if (schema.Count == 0)
+                    {
+                        <div class="fx-card mt-4" style="background:var(--fx-surface-2);box-shadow:none">
+                            Alerts will stay inside the app and use local device notifications.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mt-3">
+                            @foreach (var field in schema)
+                            {
+                                <MudTextField T="string"
+                                              Label="@(field.Label + (field.Required ? " *" : ""))"
+                                              InputType="@(field.IsSecret ? InputType.Password : InputType.Text)"
+                                              HelperText="@(field.IsSecret ? "Encrypted at rest; masked after save." : null)"
+                                              Value="@GetField(field.Key)"
+                                              ValueChanged="value => SetField(field.Key, value)" />
+                            }
+                        </div>
+                        <MudButton Variant="Variant.Outlined" Class="mt-3"
+                                   StartIcon="@Icons.Material.Filled.Send"
+                                   OnClick="SendTest">
+                            Send test email
+                        </MudButton>
+                    }
+
+                    <div class="mt-4" style="display:flex;align-items:center;gap:10px">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Save"
+                                   OnClick="SaveEmail">
+                            Save notification settings
+                        </MudButton>
+                        <MudChip T="string"
+                                 Color="@(_email.Status == EmailConfigStatus.Verified ? Color.Success : _email.Status == EmailConfigStatus.Failed ? Color.Error : Color.Default)">
+                            @_email.Status
+                        </MudChip>
+                    </div>
+                </div>
+            }
+        </MudTabPanel>
+    </MudTabs>
+</div>
 
 @code {
     private AppSetting? _settings;
@@ -106,45 +191,88 @@
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         _settings = await db.AppSettings.FirstOrDefaultAsync() ?? new AppSetting();
+        _settings.ThemeId = ThemeService.ResolveThemeId(_settings.ThemeId);
+        Theme.SetTheme(_settings.ThemeId);
         _email = await db.EmailConfigs.FirstOrDefaultAsync() ?? new EmailConfig();
     }
 
     private string GetField(string key) => _fields.GetValueOrDefault(key, "");
-    private void SetField(string key, string val) => _fields[key] = val;
+    private void SetField(string key, string value) => _fields[key] = value;
+
+    private async Task ChooseThemeAsync(string themeId)
+    {
+        Theme.SetTheme(themeId);
+        _settings ??= new AppSetting();
+        _settings.ThemeId = themeId;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        if (_settings.Id == 0)
+            db.AppSettings.Add(_settings);
+        else
+            db.AppSettings.Update(_settings);
+        await db.SaveChangesAsync();
+    }
+
+    private static string PreviewStyle(ThemeService.ThemeInfo theme) => theme.Id switch
+    {
+        "nebula" =>
+            $"--preview-bg:#080B16;--preview-nav:#0C1120;--preview-surface:#151C31;--preview-text:#F5F7FF;--preview-border:#2A3450;--preview-primary:{theme.Primary};--preview-secondary:{theme.Secondary};--preview-gradient:linear-gradient(135deg,{theme.Primary},{theme.Secondary})",
+        "graphite" =>
+            $"--preview-bg:#0D0F12;--preview-nav:#101216;--preview-surface:#191D23;--preview-text:#F4F6F8;--preview-border:#303640;--preview-primary:{theme.Primary};--preview-secondary:{theme.Secondary};--preview-gradient:linear-gradient(135deg,{theme.Primary},{theme.Secondary})",
+        "tide" =>
+            $"--preview-bg:#EEF6F7;--preview-nav:#12343B;--preview-surface:#FAFDFD;--preview-text:#102F36;--preview-border:#CFE0E2;--preview-primary:{theme.Primary};--preview-secondary:{theme.Secondary};--preview-gradient:linear-gradient(135deg,{theme.Primary},{theme.Secondary})",
+        _ =>
+            $"--preview-bg:#F4F5FB;--preview-nav:#11152A;--preview-surface:#FFFFFF;--preview-text:#171A2B;--preview-border:#E3E5F0;--preview-primary:{theme.Primary};--preview-secondary:{theme.Secondary};--preview-gradient:linear-gradient(135deg,{theme.Primary},{theme.Secondary})"
+    };
 
     private async Task SaveSettings()
     {
-        if (_settings is null) return;
+        if (_settings is null)
+            return;
+
+        _settings.ThemeId = Theme.CurrentThemeId;
         await using var db = await DbFactory.CreateDbContextAsync();
-        if (_settings.Id == 0) db.AppSettings.Add(_settings); else db.AppSettings.Update(_settings);
+        if (_settings.Id == 0)
+            db.AppSettings.Add(_settings);
+        else
+            db.AppSettings.Update(_settings);
         await db.SaveChangesAsync();
-        Snackbar.Add("Settings saved (restart to switch backend)", Severity.Success);
+        Snackbar.Add("Data settings saved", Severity.Success);
     }
 
     private void TestConnection() =>
-        _testResult = "Test runs on save in the desktop build (uses the live provider).";
+        _testResult = "The desktop host validates the live provider when these settings are saved.";
 
     private async Task SaveEmail()
     {
-        if (_email is null) return;
-        // NOTE: secret fields are persisted via ISecretStore in the full flow; here we save non-secrets.
+        if (_email is null)
+            return;
+
         _email.OptionsJson = System.Text.Json.JsonSerializer.Serialize(
-            _fields.Where(kv => kv.Key is "fromAddress" or "host" or "port" or "region" or "encryption" or "username")
-                   .ToDictionary(kv => kv.Key, kv => kv.Value));
+            _fields.Where(field => field.Key is "fromAddress" or "host" or "port" or "region" or "encryption" or "username")
+                .ToDictionary(field => field.Key, field => field.Value));
         _email.FromAddress = _fields.GetValueOrDefault("fromAddress");
         _email.Enabled = _email.Method != EmailMethod.InAppAndDeviceOnly;
 
         await using var db = await DbFactory.CreateDbContextAsync();
-        if (_email.Id == 0) db.EmailConfigs.Add(_email); else db.EmailConfigs.Update(_email);
+        if (_email.Id == 0)
+            db.EmailConfigs.Add(_email);
+        else
+            db.EmailConfigs.Update(_email);
         await db.SaveChangesAsync();
-        Snackbar.Add("Email settings saved", Severity.Success);
+        Snackbar.Add("Notification settings saved", Severity.Success);
     }
 
     private async Task SendTest()
     {
-        if (_email is null) return;
-        var result = await EmailFactory.Resolve(_email.Method).SendTestAsync(_email.FromAddress ?? "test@example.com");
+        if (_email is null)
+            return;
+
+        var result = await EmailFactory.Resolve(_email.Method)
+            .SendTestAsync(_email.FromAddress ?? "test@example.com");
         _email.Status = result.Success ? EmailConfigStatus.Verified : EmailConfigStatus.Failed;
-        Snackbar.Add(result.Success ? "Test sent" : $"Failed: {result.Error}", result.Success ? Severity.Success : Severity.Error);
+        Snackbar.Add(
+            result.Success ? "Test sent" : $"Failed: {result.Error}",
+            result.Success ? Severity.Success : Severity.Error);
     }
 }
