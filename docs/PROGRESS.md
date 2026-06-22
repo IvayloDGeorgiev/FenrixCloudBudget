@@ -7,6 +7,12 @@
 **Last updated:** 2026-06-22
 **Current focus:** Phases 4–5 implemented (via Codex). Latest change: Projects page now supports editing/removing **manual** services (cloud-synced services are locked) and full **per-project budget** CRUD so pay-as-you-go spend triggers threshold alerts before overspend. Next: manual Windows/API verification, then complete hosted OTP sign-in and bidirectional SaaS sync.
 
+### Recent: AWS & GCP connectors rebuilt (Azure already working)
+The AWS and GCP connector classes had gone missing (factory/DI still referenced them, so the Cloud project didn't build). Recreated both with the review fixes:
+- **AWS** (`Aws/AwsCloudConnector.cs`): Cost Explorer pinned to **us-east-1** (it's a global endpoint); the scope is now the real **12-digit account ID via STS GetCallerIdentity** (not the region); discovery **paginates and sweeps all commercial regions** (de-duped by ARN) so out-of-region resources aren't missed; friendly auth/permission errors. (Tagging API still only returns *tagged* resources — untagged are still captured in Cost Explorer spend.)
+- **GCP** (`Gcp/GcpCloudConnector.cs`): auth now **verifies permissions** (Cloud Asset probe + BigQuery dataset read) instead of just building a client; **billing project/dataset/table are separate fields** (export can live in another project); supports **standard (service-level) and detailed (resource-level) export**; errors name the exact roles (Cloud Asset Viewer, BigQuery Job User, BigQuery Data Viewer).
+- csproj already had the needed packages (incl. AWSSDK.SecurityToken). **Verify on build** — GCP BigQuery row typing and the Asset `SearchAllResources` probe are the most likely spots to need a tweak.
+
 ### Recent: dashboard as a "budget radar"
 - ✅ `DashboardAnalytics` service computes everything in one pass: budget **pacing** (actual vs ideal vs forecast), **projected month-end**, **budget runway / days-to-exhaust**, **month-over-month**, budget **health** counts, spend trend + **anomaly** flags (mean+2σ), **cost composition over time** by provider, **spend by client/project**, **top movers** (vs previous period), a **treemap** (project→service), and an **estimated-vs-synced** split. Covered by `DashboardAnalyticsTests`.
 - ✅ New chart components: `FxPacingChart`, `FxStackedArea`, `FxRankBars`, `FxDeltaBars`, `FxTreemap`; `FxAreaChart` extended with anomaly markers.
