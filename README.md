@@ -213,4 +213,11 @@ git push
 | Monetization | none — ad-free, no Pro tier | — |
 | Source code | "Fenrix Source_" link (nav + Overview) opens fenrixsource.com to buy the source | — |
 | Reports | ✅ executive-summary export (PDF + CSV) from the Reports page | scheduled/emailed reports |
-```
+
+---
+
+## License
+
+Commercial source-code license — see [`LICENSE.md`](LICENSE.md). In short: a purchaser may
+use, modify, and build/sell their own **applications** from this source, but may **not** sell,
+resell, or redistribute the **source code** itself (free or paid, original or modified).
