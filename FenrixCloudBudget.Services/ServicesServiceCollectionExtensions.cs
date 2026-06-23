@@ -55,6 +55,9 @@ public static class ServicesServiceCollectionExtensions
         // Dashboard analytics (pacing, forecast, movers, composition, treemap, …).
         services.AddScoped<Analytics.DashboardAnalytics>();
 
+        // Reporting (executive-summary CSV + PDF export).
+        services.AddScoped<Reports.ReportService>();
+
         return services;
     }
 

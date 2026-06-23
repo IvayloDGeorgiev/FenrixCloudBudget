@@ -69,10 +69,10 @@ Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 - ✅ 2026 visual redesign: atmospheric responsive shell, animated/reduced-motion-aware surfaces, redesigned home/dashboard, and 4 full visual personalities (Daybreak, Nebula, Graphite, Tide) with matching MudBlazor palettes and live Appearance previews.
 - ✅ Settings → Appearance persists the selected personality immediately; legacy theme IDs migrate automatically. Settings → Data & Connections (mode + interval); Settings → Email & Notifications (dynamic per-method fields, test button).
 - ✅ Email secret persistence via `ISecretStore` from Settings UI: a newly entered secret (Resend/SendGrid/Postmark API key, SMTP password, etc.) is encrypted and its reference + masked hint stored on `EmailConfig`; non-secret schema fields are persisted generically; the saved hint shows as the field placeholder and a blank entry keeps the existing key. "Send test email" now saves first so the adapter reads the just-entered key (previously the key was dropped on save, so providers returned 401 "API key is invalid").
-- 🟡 AdMob: CSS ad-slot placeholder only — **integrate Plugin.MauiMTAdmob + UMP consent**.
-- ⬜ Report export (PDF/CSV).
+- ❌ AdMob removed — the app is ad-free; the dashboard ad slot is gone (the `.fx-ad-slot` style is now unused).
+- ✅ Report export (PDF + CSV): a new **Reports** page (client + provider + date-range filters, live preview) generates an executive-summary budget report. Shared `ReportService` (in `Services/Reports`) reuses `DashboardAnalytics`, renders CSV (Excel-friendly, UTF-8 BOM) and a polished PDF via **QuestPDF** (Community licence); files save to the app's Reports folder and open in their default app. Includes key figures, budget health, spend by provider, budget-vs-actual per project, and top cost drivers.
 - ⬜ Play Console: signing, privacy policy, data-safety, AAB upload.
-- **Next:** AdMob init + consent; secret round-trip in Settings; PDF/CSV export.
+- **Next:** Play Console listing.
 
 ## Phase 3 — Cloud connections & resource discovery
 - ✅ `ICloudConnector` + AWS/Azure/GCP implementations (discovery + cost) behind the interface, each with a `CredentialSchema`.
@@ -105,8 +105,10 @@ Legend: ✅ done · 🟡 partial/scaffolded · ⬜ not started
 - ⬜ Remaining Phase 5: production password replacement/change flow, SaaS **push** sync (only pull is wired) with tenant-scoped stable IDs, and optional B2C (Entra/Cognito).
 - **Next:** manually build and test Windows/API login (password + email code) and Users actions; then define tenant-scoped stable IDs before enabling SaaS push.
 
-## Phase 6 — Monetization & polish
-- ⬜ Remove-ads / Pro via Play Billing; iOS/macOS targets; anomaly detection; forecasts.
+## Phase 6 — Source-code link & polish
+- ❌ Monetization dropped: no AdMob, no Play Billing, no Pro tier.
+- ✅ Source-code link: a "Fenrix Source_" entry (nav insight card + Overview tile) opens https://fenrixsource.com in the system browser, where users can buy the application source code.
+- ⬜ Optional polish: iOS/macOS targets; deeper anomaly detection / forecasts.
 
 ---
 

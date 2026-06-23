@@ -43,6 +43,10 @@
             <span class="fx-nav-icon"><MudIcon Icon="@Icons.Material.Filled.CloudQueue" Size="Size.Small" /></span>
             <span>Cloud accounts</span>
         </NavLink>
+        <NavLink class="fx-nav-link" href="/reports">
+            <span class="fx-nav-icon"><MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" /></span>
+            <span>Reports</span>
+        </NavLink>
         @if (Auth.IsAdmin)
         {
             <NavLink class="fx-nav-link" href="/users">
@@ -59,7 +63,7 @@
         <span class="fx-insight-icon"><MudIcon Icon="@Icons.Material.Filled.AutoGraph" /></span>
         <span>
             <strong>Fenrix Source_</strong>
-            <small>fenrixsource.com</small>
+            <small>Buy the source code</small>
         </span>
         <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" />
     </a>

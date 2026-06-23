@@ -93,6 +93,16 @@
             <small>themes, data, sync and notifications</small>
         </div>
     </a>
+
+    <a class="fx-tile" href="https://fenrixsource.com" rel="noopener noreferrer"
+       @onclick="OpenSource" @onclick:preventDefault="true">
+        <div class="fx-tile-icon"><MudIcon Icon="@Icons.Material.Filled.Code" /></div>
+        <div class="fx-tile-title">Source code</div>
+        <div class="fx-tile-stat" style="font-size:20px">
+            Fenrix Source_
+            <small>buy the source code at fenrixsource.com</small>
+        </div>
+    </a>
 </div>
 
 @code {
@@ -101,6 +111,10 @@
     private int _clientCount;
     private int _remindersDue;
     private int _accountCount;
+
+    // Open the source-code store in the system browser instead of navigating the app's WebView.
+    private Task OpenSource()
+        => Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync("https://fenrixsource.com");
 
     protected override async Task OnInitializedAsync()
     {

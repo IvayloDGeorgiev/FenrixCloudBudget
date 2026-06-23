@@ -1,0 +1,192 @@
+@page "/reports"
+@using System.IO
+@using FenrixCloudBudget.Services.Reports
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject ReportService Reporter
+@inject ISnackbar Snackbar
+
+<section class="fx-page-header">
+    <div class="fx-page-heading">
+        <div class="fx-eyebrow">Share &amp; export</div>
+        <h1 class="fx-page-title">Reports</h1>
+        <p class="fx-page-sub">Generate an executive budget summary for a client and period, as a polished PDF or a spreadsheet-ready CSV.</p>
+    </div>
+</section>
+
+<section class="fx-card fx-section-gap">
+    <div class="fx-filter-row">
+        <span class="fx-filter-label"><MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" /> Scope</span>
+        <MudSelect T="string" @bind-Value="_provider" Label="Provider" Dense="true" Class="fx-filter-control">
+            @foreach (var option in ProviderOptions)
+            {
+                <MudSelectItem T="string" Value="@option">@(option == "All" ? "All clouds" : option)</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="int?" @bind-Value="_clientId" Label="Client" Dense="true" Class="fx-filter-control">
+            <MudSelectItem T="int?" Value="@((int?)null)">All clients</MudSelectItem>
+            @foreach (var client in _clients)
+            {
+                <MudSelectItem T="int?" Value="@client.Id">@client.Name</MudSelectItem>
+            }
+        </MudSelect>
+        <MudDatePicker @bind-Date="_from" Label="From" Class="fx-filter-control" />
+        <MudDatePicker @bind-Date="_to" Label="To" Class="fx-filter-control" />
+        <MudSpacer />
+        <MudButton Class="fx-filter-submit" Variant="Variant.Outlined" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Refresh" Disabled="_busy" OnClick="BuildAsync">
+            Update preview
+        </MudButton>
+    </div>
+</section>
+
+@if (_ctx is not null)
+{
+    var d = _ctx.Data;
+    <section class="fx-card fx-section-gap">
+        <div class="fx-card-head">
+            <div>
+                <h2 class="fx-card-title">Report preview</h2>
+                <div class="fx-card-kicker">@_ctx.ClientName · @_ctx.ProviderLabel · @_ctx.PeriodLabel · @d.DataMode</div>
+            </div>
+            <div class="fx-settings-actions">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.PictureAsPdf" Disabled="_busy"
+                           OnClick="@(() => ExportAsync("pdf"))">
+                    Export PDF
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.GridOn" Disabled="_busy"
+                           OnClick="@(() => ExportAsync("csv"))">
+                    Export CSV
+                </MudButton>
+            </div>
+        </div>
+
+        <div class="fx-kpi-grid">
+            <div class="fx-card fx-kpi"
+                 title="Total spend for the selected client, provider and date range — synced actual costs where available, otherwise the manual estimate.">
+                <div>
+                    <div class="fx-kpi-label">Total spend (selected period)</div>
+                    <div class="fx-kpi-value">@d.TotalSpend.ToString("C0")</div>
+                    <div class="fx-kpi-foot"><span>@d.DataMode · @_ctx.PeriodLabel</span></div>
+                </div>
+                <div class="fx-kpi-icon"><MudIcon Icon="@Icons.Material.Filled.Payments" /></div>
+            </div>
+
+            <div class="fx-card fx-kpi"
+                 title="Forecast total spend by the end of the current month at the current daily run-rate.">
+                <div>
+                    <div class="fx-kpi-label">Forecast spend (this month)</div>
+                    <div class="fx-kpi-value">@d.ProjectedMonthEnd.ToString("C0")</div>
+                    <div class="fx-kpi-foot"><span>projected at current run-rate</span></div>
+                </div>
+                <div class="fx-kpi-icon"><MudIcon Icon="@Icons.Material.Filled.TrendingUp" /></div>
+            </div>
+
+            <div class="fx-card fx-kpi"
+                 title="Combined monthly budget cap of all projects in scope.">
+                <div>
+                    <div class="fx-kpi-label">Monthly budget cap</div>
+                    <div class="fx-kpi-value">@d.MonthlyBudget.ToString("C0")</div>
+                    <div class="fx-kpi-foot"><span>across @d.ProjectCount project(s)</span></div>
+                </div>
+                <div class="fx-kpi-icon"><MudIcon Icon="@Icons.Material.Filled.Shield" /></div>
+            </div>
+
+            <div class="fx-card fx-kpi"
+                 title="Projects on track, approaching their cap (≥80% used) and over budget (≥100% used).">
+                <div>
+                    <div class="fx-kpi-label">Projects on / near / over budget</div>
+                    <div class="fx-kpi-value" style="font-size:22px">
+                        <span class="fx-text-ok">@d.BudgetsOnTrack</span> /
+                        <span style="color:var(--fx-warn)">@d.BudgetsApproaching</span> /
+                        <span class="fx-text-danger">@d.BudgetsOver</span>
+                    </div>
+                    <div class="fx-kpi-foot"><span>on track · approaching · over</span></div>
+                </div>
+                <div class="fx-kpi-icon"><MudIcon Icon="@Icons.Material.Filled.MonitorHeart" /></div>
+            </div>
+        </div>
+
+        <p class="fx-page-sub" style="margin-top:14px">
+            The export includes spend by provider, budget vs actual per project, and the top cost drivers.
+            Files are saved to your reports folder and opened in their default app.
+        </p>
+    </section>
+}
+else
+{
+    <div class="fx-card"><div class="fx-chart-wrap"><Empty Text="Preparing report…" /></div></div>
+}
+
+@code {
+    private static readonly string[] ProviderOptions =
+        new[] { "All" }.Concat(Enum.GetNames<CloudProvider>()).ToArray();
+
+    private string _provider = "All";
+    private int? _clientId;
+    private DateTime? _from = DateTime.Today.AddDays(-30);
+    private DateTime? _to = DateTime.Today;
+    private bool _busy;
+
+    private List<Client> _clients = new();
+    private ReportContext? _ctx;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _clients = await db.Clients.OrderBy(c => c.Name).ToListAsync();
+        _clientId ??= _clients.FirstOrDefault()?.Id;
+        await BuildAsync();
+    }
+
+    private async Task BuildAsync()
+    {
+        _busy = true;
+        try
+        {
+            var from = DateOnly.FromDateTime((_from ?? DateTime.Today.AddDays(-30)).Date);
+            var to = DateOnly.FromDateTime((_to ?? DateTime.Today).Date);
+            _ctx = await Reporter.BuildAsync(new ReportRequest(_provider, _clientId, from, to));
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ExportAsync(string format)
+    {
+        if (_ctx is null)
+            await BuildAsync();
+        if (_ctx is null)
+            return;
+
+        _busy = true;
+        try
+        {
+            var (bytes, name) = format == "pdf"
+                ? (Reporter.RenderPdf(_ctx), _ctx.SuggestedFileName("pdf"))
+                : (Reporter.RenderCsv(_ctx), _ctx.SuggestedFileName("csv"));
+
+            var dir = Path.Combine(Microsoft.Maui.Storage.FileSystem.AppDataDirectory, "Reports");
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, name);
+            await File.WriteAllBytesAsync(path, bytes);
+
+            await Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync(
+                new Microsoft.Maui.ApplicationModel.OpenFileRequest(
+                    "Fenrix report", new Microsoft.Maui.Storage.ReadOnlyFile(path)));
+
+            Snackbar.Add($"Saved and opened {name}", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Could not generate the report: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

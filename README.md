@@ -210,5 +210,7 @@ git push
 | Reminders | ✅ manual + lead-times + snooze/done + link to connected account | auto-detect secret/cert expiry |
 | Notifications | ✅ in-app + device + server email (via API) | configure email adapter SDKs (SES/ACS) |
 | Auth / multi-user | ✅ JWT login + OTP/invites + admin Users workspace | invited-member OTP screens; SaaS push sync; optional B2C |
-| Ads / Pro | ad slot placeholder | AdMob + UMP consent; Play Billing; PDF/CSV export |
+| Monetization | none — ad-free, no Pro tier | — |
+| Source code | "Fenrix Source_" link (nav + Overview) opens fenrixsource.com to buy the source | — |
+| Reports | ✅ executive-summary export (PDF + CSV) from the Reports page | scheduled/emailed reports |
 ```
