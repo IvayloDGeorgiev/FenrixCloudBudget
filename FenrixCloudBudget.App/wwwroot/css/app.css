@@ -575,6 +575,20 @@ button,
     border-color: rgba(255, 255, 255, .16);
 }
 
+.fx-nav-insight-disabled,
+.fx-tile-disabled {
+    cursor: not-allowed;
+    opacity: .58;
+}
+
+.fx-nav-insight-disabled:hover,
+.fx-tile-disabled:hover {
+    transform: none;
+    border-color: rgba(255, 255, 255, .08);
+    background: var(--fx-surface);
+    box-shadow: var(--fx-shadow-sm), var(--fx-glow);
+}
+
 .fx-insight-icon {
     width: 34px;
     height: 34px;

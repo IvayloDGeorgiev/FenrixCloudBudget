@@ -58,15 +58,29 @@
 
     <div class="fx-nav-spacer"></div>
 
-    <a class="fx-nav-insight" href="https://fenrixsource.com" rel="noopener noreferrer"
-       @onclick="OpenFenrixSource" @onclick:preventDefault="true">
-        <span class="fx-insight-icon"><MudIcon Icon="@Icons.Material.Filled.AutoGraph" /></span>
-        <span>
-            <strong>Fenrix Source_</strong>
-            <small>Buy the source code</small>
-        </span>
-        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" />
-    </a>
+    @if (FeatureFlags.FenrixSource)
+    {
+        <a class="fx-nav-insight" href="https://fenrixsource.com" rel="noopener noreferrer"
+           @onclick="OpenFenrixSource" @onclick:preventDefault="true">
+            <span class="fx-insight-icon"><MudIcon Icon="@Icons.Material.Filled.AutoGraph" /></span>
+            <span>
+                <strong>Fenrix Source_</strong>
+                <small>Buy the source code</small>
+            </span>
+            <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" />
+        </a>
+    }
+    else
+    {
+        <div class="fx-nav-insight fx-nav-insight-disabled" aria-disabled="true">
+            <span class="fx-insight-icon"><MudIcon Icon="@Icons.Material.Filled.AutoGraph" /></span>
+            <span>
+                <strong>Fenrix Source_</strong>
+                <small>Coming soon</small>
+            </span>
+            <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
+        </div>
+    }
 
     <NavLink class="fx-nav-link fx-settings-link" href="/settings">
         <span class="fx-nav-icon"><MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" /></span>
