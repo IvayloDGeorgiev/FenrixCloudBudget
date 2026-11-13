@@ -1,3 +1,5 @@
+extern alias AzureIdentity;
+
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
@@ -33,7 +35,7 @@ public sealed class AzureCloudConnector : ICloudConnector
     private readonly IHttpClientFactory _httpClients;
     private readonly ILogger<AzureCloudConnector> _log;
     private ArmClient? _arm;
-    private ClientSecretCredential? _credential;
+    private AzureIdentity::Azure.Identity.ClientSecretCredential? _credential;
 
     public CloudProvider Provider => CloudProvider.Azure;
 
@@ -75,7 +77,7 @@ public sealed class AzureCloudConnector : ICloudConnector
             if (!Guid.TryParse(subscriptionId, out _))
                 return new AuthResult(false, Error: "Subscription ID must be a valid GUID.");
 
-            _credential = new ClientSecretCredential(tenant, clientId, clientSecret);
+            _credential = new AzureIdentity::Azure.Identity.ClientSecretCredential(tenant, clientId, clientSecret);
             _arm = new ArmClient(_credential);
 
             // Authentication alone does not grant Azure resource access. Confirm that this service
@@ -101,7 +103,7 @@ public sealed class AzureCloudConnector : ICloudConnector
             var handle = await _secrets.SaveAsync(clientSecret, ct);
             return new AuthResult(true, handle.Reference, handle.Hint);
         }
-        catch (AuthenticationFailedException ex)
+        catch (AzureIdentity::Azure.Identity.AuthenticationFailedException ex)
         {
             _log.LogWarning(ex, "Azure credential authentication failed");
             return new AuthResult(

@@ -9,8 +9,9 @@
     <PackageReference Include="AWSSDK.ResourceGroupsTaggingAPI" Version="3.7.*" />
     <PackageReference Include="AWSSDK.SecurityToken" Version="3.7.*" />
     <!-- Azure -->
-    <PackageReference Include="Azure.Identity" Version="1.13.*" />
-    <PackageReference Include="Azure.ResourceManager" Version="1.13.*" />
+    <PackageReference Include="Azure.Identity" Version="1.14.*" Aliases="global,AzureIdentity" />
+    <!-- ResourceGraph 1.1.x requires Azure.ResourceManager 1.14.x or newer. -->
+    <PackageReference Include="Azure.ResourceManager" Version="1.14.*" />
     <PackageReference Include="Azure.ResourceManager.ResourceGraph" Version="1.1.*" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
     <!-- GCP -->
